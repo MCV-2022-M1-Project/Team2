@@ -1,1 +1,1 @@
-# Team2
+# Content Based Image Retrieval
