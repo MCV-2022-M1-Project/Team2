@@ -1,5 +1,6 @@
 import numpy as np
-
+from PIL import Image
+import cv2
 class RemoveBackground:
     @staticmethod
     def compute_removal(data):
@@ -110,6 +111,87 @@ class RemoveBackground:
   
         return mask.astype("uint8")
 
-        #masked = cv2.bitwise_and(imagecv, imagecv, mask=mask)
+    @staticmethod
+    def compute_removal_2(data):
+        threshold = 40
+        threshold_2 = 30
 
-        #cv2.imwrite("mascara.png", masked)
+        # Convert image to PIL image
+        img = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
+        image = Image.fromarray(img)
+
+        im = image.convert('RGBA')
+        data = np.array(im)
+
+        # Get the color histogram of the image
+        histogram = image.histogram()
+       
+        # Take only the Red counts
+        l1 = histogram[0:256]
+
+        # Take only the Blue counts
+        l2 = histogram[256:512]
+
+        # Take only the Green counts
+        l3 = histogram[512:768]
+
+
+        th = 10 # Window to compare peak
+        # Search peak for red
+        topR = 230
+        for i in range(230,0,-1):
+            if l1[i] >= l1[topR]:
+                topR = i
+            elif topR-i > th:
+                break
+
+        # Search peak for green
+        topG = 230
+        for i in range(230,0,-1):
+            if l2[i] >= l2[topG]:
+                topG = i
+            elif topG-i > th:
+                break
+
+        # Search peak for blue
+        topB = 230
+        for i in range(230,0,-1):
+            if l3[i] >= l3[topB]:
+                topB = i
+            elif topB-i > th:
+                break
+
+        #########################
+        # Search for first minimum after peak in red channel
+        th = 10
+        botR = topB
+        for i in range(topB,0,-1):
+            if l1[i] <= l1[botR]:
+                botR = i
+            elif botR-i > th:
+                break
+
+        # Search for first minimum after peak in green channel
+        botG = topG
+        for i in range(topB,0,-1):
+            if l2[i] <= l2[botG]:
+                botG = i
+            elif botG-i > th:
+                break
+
+        # Search for first minimum after peak in blue channel
+        botB = topB
+        for i in range(topB,0,-1):
+            if l3[i] <= l3[botB]:
+                botB = i
+            elif botB-i > th:
+                break
+
+        botR_shadow = botR - 120
+        botG_shadow = botG - 120
+        botB_shadow = botB - 120
+
+        mask = np.logical_not((data[:,:,0] > botR - threshold) & (data[:,:,1] > botG  - threshold) & (data[:,:,2] > botB  - threshold))
+        mask = np.logical_and(mask, np.logical_not((data[:,:,0] > botR_shadow - threshold_2+10) & (data[:,:,0] < botR_shadow  + threshold_2) & (data[:,:,1] > botG_shadow  - threshold_2+10) & (data[:,:,1] < botG_shadow  + threshold_2) & (data[:,:,2] > botB_shadow  - threshold_2+10) & (data[:,:,2] < botB_shadow + threshold_2)))
+        
+        return mask.astype("uint8")
