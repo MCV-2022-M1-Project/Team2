@@ -1,14 +1,16 @@
 import numpy as np
 
-class Rmv_background:
+class RemoveBackground:
     @staticmethod
     def compute_removal(data):
 
         threshold = 65
-
+        threshold_2 = 40
+        
         row, col, _ = data.shape
 
-        threshold_rec = round(max(row,col)/2)
+        threshold_rec_col = round(col/1.5)
+        threshold_rec_row = round(row/1.5)
         threshold_erase_col = round(col/3)
         threshold_erase_row = round(row/3)
 
@@ -18,12 +20,16 @@ class Rmv_background:
         valor = valor + data[round(row/2), 0 , :].astype(int)
         valor = valor + data[round(row/2), col-1, :].astype(int)
         valor = valor / 4
+        col_shadow = valor-120
 
         # Every pixel similar to the background color gets to False
         mask = np.logical_not((data[:,:,0] > valor[0] - threshold) & (data[:,:,1] > valor[1]  - threshold) & (data[:,:,2] > valor[2]  - threshold))
+        # Every pixel similar to the background color with shadow gets to False
+        mask = np.logical_and(mask, np.logical_not((data[:,:,0] > col_shadow[0] - threshold_2+10) & (data[:,:,0] < col_shadow[0]  + threshold_2) & (data[:,:,1] > col_shadow[1]  - threshold_2+10) & (data[:,:,1] < col_shadow[1]  + threshold_2) & (data[:,:,2] > col_shadow[2]  - threshold_2+10) & (data[:,:,2] < col_shadow[2] + threshold_2)))
+        
         # mask = np.logical_not((data[:,:,0] > valor[0] - threshold) & (data[:,:,0] < valor[0]  + threshold) & (data[:,:,1] > valor[1]  - threshold) & (data[:,:,1] < valor[1]  + threshold) & (data[:,:,2] > valor[2]  - threshold) & (data[:,:,2] < valor[2] + threshold))
-
-        # Reconstruct the painting by rows
+       
+        # Reconstruct painting by rows
         for i in range(row):
             first = 0
             final = col
@@ -33,12 +39,12 @@ class Rmv_background:
                 if mask[i,j] > 0 and not found_first:
                     found_first = True
                     first = j
-                if mask[i,j] > 0 and j - final < threshold_rec:
+                if mask[i,j] > 0 and j - final <= threshold_rec_col:
                     final = j
             if found_first:
                 mask[i,first:final] = 1
             
-        # Reconstruct the painting by columns
+        # Reconstruct painting by columns
         for j in range(col):
             first = 0
             final = row
@@ -48,7 +54,7 @@ class Rmv_background:
                 if mask[i,j] > 0 and not found_first:
                     found_first = True
                     first = i
-                if mask[i,j] > 0 and i - final < threshold_rec:
+                if mask[i,j] > 0 and i - final <= threshold_rec_row:
                     final = i
             if found_first:
                 mask[first:final,j] = 1
@@ -101,7 +107,7 @@ class Rmv_background:
                     conti = False
                     if final - first <= threshold_erase_row:
                         mask[first:final,j] = 0
-
+  
         return mask.astype("uint8")
 
         #masked = cv2.bitwise_and(imagecv, imagecv, mask=mask)
