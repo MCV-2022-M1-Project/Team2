@@ -1,4 +1,5 @@
 # Import required packages
+#from curses import tparm
 from imutils.paths import list_images
 from packages import Searcher
 from packages import RGBHistogram
@@ -12,12 +13,17 @@ from packages import RemoveBackground
 # from metrics.average_precision import mapk
 
 # construct the argument parser and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-d", "--dataset", required=True, help="Path to the directory that contains the images we just indexed")
-ap.add_argument("-i", "--index", required=False, help="Path to where we stored our index")
-ap.add_argument("-q", "--query", required=True, help="Path to query image")
-ap.add_argument("-b", "--query1", required=True, help="Path to the query images with background")
-args = vars(ap.parse_args())
+#ap = argparse.ArgumentParser()
+#ap.add_argument("-d", "--dataset", required=True, help="Path to the directory that contains the images we just indexed")
+#ap.add_argument("-i", "--index", required=False, help="Path to where we stored our index")
+#ap.add_argument("-q", "--query", required=True, help="Path to query image")
+#ap.add_argument("-b", "--query1", required=True, help="Path to the query images with background")
+#args = vars(ap.parse_args())
+args = {}
+args["dataset"] = "BBDD"
+args["index"] = "."
+args["query"] = "qsd1_w1"
+args["query1"] = "qsd2_w1"
 
 # Initialize a Dictionary to store our images and features
 index = {}
@@ -44,7 +50,7 @@ index = collections.OrderedDict(sorted(index.items()))
 for imagePath in sorted(list_images(args["query"])):
     if "jpg" in imagePath:
         queryImage = cv2.imread(imagePath)
-        cv2.imshow("Query", queryImage)
+        #cv2.imshow("Query", queryImage)
         print("query: {}".format(imagePath))
 
         # describe the query in the same way that we did in
@@ -64,7 +70,13 @@ for imagePath in sorted(list_images(args["query"])):
             print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
 
 # load the query image and show it
+sumPrecision = 0
+sumRecall = 0
+sumF1 = 0
+counter = 0
 for imagePath in sorted(list_images(args["query1"])):
+
+    mask = cv2.Mat
     if "jpg" in imagePath:
         # Get the mask for removing background, load the image
         queryImage = cv2.imread(imagePath)
@@ -87,3 +99,47 @@ for imagePath in sorted(list_images(args["query1"])):
             # load the result image
             (score, imageName) = results[j]
             print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
+
+        maskPath = imagePath[:-3] + "png"
+        ogMask = cv2.imread(maskPath)
+        height, width, _ = ogMask.shape
+        tp = 0
+        tn = 0
+        fp = 0
+        fn = 0
+
+        for i in range(height):
+            for j in range(width):
+                if ogMask[i, j, 0] == 0 and mask[i, j] == 0:
+                    tn += 1
+                elif ogMask[i, j, 0] == 0 and mask[i, j] != 0:
+                    fp += 1 
+                elif ogMask[i, j, 0] != 0 and mask[i, j] == 0:
+                    fn += 1
+                elif ogMask[i, j, 0] != 0 and mask[i, j] != 0:
+                    tp += 1
+                #if ogMask[i, j, 0] == 0 and ogMask[i, j, 0] == 0:
+                #    tn += 1
+                #elif ogMask[i, j, 0] == 0 and ogMask[i, j, 0] != 0:
+                #    fp += 1 
+                #elif ogMask[i, j, 0] != 0 and ogMask[i, j, 0] == 0:
+                #    fn += 1
+                #elif ogMask[i, j, 0] != 0 and ogMask[i, j, 0] != 0:
+                #    tp += 1
+        
+        precision = tp / (tp + fp)
+        recall = tp / (tp + fn)
+        f1 = 2 * precision * recall / (precision + recall)
+
+        sumPrecision += precision
+        sumRecall += recall
+        sumF1 += f1
+        counter += 1
+
+        avgPrecision = sumPrecision / counter
+        avgRecall = sumRecall / counter
+        avgF1 = sumF1 / counter
+
+        print("Precision: ", avgPrecision * 100, "%")
+        print("Recall: ", avgRecall * 100, "%")
+        print("F1: ", avgF1 * 100, "%\n")
