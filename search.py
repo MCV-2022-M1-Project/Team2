@@ -1,18 +1,15 @@
 # Import required packages
-#from curses import tparm
 from imutils.paths import list_images
 from packages import Searcher
 from packages import RGBHistogram
 import argparse
-import os
 import pickle
 import collections
 import cv2
 from packages import RemoveBackground
+from packages.average_precicion import mapk
 
-# from metrics.average_precision import mapk
-
-# construct the argument parser and parse the arguments
+# Construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-d", "--dataset", required=True, help="Path to the directory that contains the images we just indexed")
 ap.add_argument("-i", "--index", required=False, help="Path to where we stored our index")
@@ -20,12 +17,15 @@ ap.add_argument("-q", "--query", required=True, help="Path to query image")
 ap.add_argument("-b", "--query1", required=True, help="Path to the query images with background")
 ap.add_argument("-m", "--masks", required=True, help="Path to save the masks")
 args = vars(ap.parse_args())
-#args = {}
-#args["dataset"] = "BBDD"
-#args["index"] = "."
-#args["query"] = "qsd1_w1"
-#args["query1"] = "qsd2_w1"
-#args["masks"] = "masks"
+
+
+# Evaluate the predictions
+def evaluate(predicted, ground_truth, k):
+    file = open(ground_truth, 'rb')
+    actual = pickle.load(file)
+    result = mapk(actual=actual, predicted=predicted, k=k)
+    return result
+
 
 # Initialize a Dictionary to store our images and features
 index = {}
@@ -47,37 +47,45 @@ for imagePath in list_images(args["dataset"]):
 
 # Sort the dictionary according to the keys
 index = collections.OrderedDict(sorted(index.items()))
+predicted = []
 
-# load the query image and show it
+# Load the query images
 for imagePath in sorted(list_images(args["query"])):
     if "jpg" in imagePath:
         queryImage = cv2.imread(imagePath)
-        #cv2.imshow("Query", queryImage)
         print("query: {}".format(imagePath))
 
-        # describe the query in the same way that we did in
-        # index.py -- a 3D RGB histogram with 8 bins per channel
+        # Describe a 3D RGB histogram with 8 bins per channel
         desc = RGBHistogram((8, 8, 8), None)
         queryFeatures = desc.compute_histogram(queryImage)
 
-        # load the index perform the search
+        # Perform the search
         searcher = Searcher(index)
         results = searcher.search(queryFeatures)
+        predicted_query = []
 
-        # loop over the top ten results
+        # Loop over the top ten results
         for j in range(0, 10):
-            # grab the result (we are using row-major order) and
-            # load the result image
+            # Grab the result
             (score, imageName) = results[j]
+            predicted_query.append(int(imageName.replace(".jpg", "")))
             print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
 
-# load the query image and show it
+        # Append the final predicted list
+        predicted.append(predicted_query)
+
+# Evaluate the map accuracy
+print("map@ {}: {}".format(5, evaluate(predicted, args["query"] + "/gt_corresps.pkl", k=5)))
+
+# Initialize the parameters
 sumPrecision = 0
 sumRecall = 0
 sumF1 = 0
 counter = 0
-for imagePath in sorted(list_images(args["query1"])):
+predicted = []
 
+# Loop over the second dataset
+for imagePath in sorted(list_images(args["query1"])):
     mask = cv2.Mat
     if "jpg" in imagePath:
         # Get the mask for removing background, load the image
@@ -90,54 +98,68 @@ for imagePath in sorted(list_images(args["query1"])):
         queryImage = cv2.bitwise_and(queryImage, queryImage, mask=mask)
         print("query: {}".format(imagePath))
 
-        # describe the query in the same way that we did in
-        # index.py -- a 3D RGB histogram with 8 bins per channel
+        # Describe a 3D RGB histogram with 8 bins per channel
         desc = RGBHistogram((8, 8, 8), None)
         queryFeatures = desc.compute_histogram(queryImage)
 
-        # load the index perform the search
+        # Perform the search
         searcher = Searcher(index)
         results = searcher.search(queryFeatures)
+        predicted_query = []
 
-        # loop over the top ten results
+        # Loop over the top ten results
         for j in range(0, 10):
-            # grab the result (we are using row-major order) and
-            # load the result image
+            # Grab the result
             (score, imageName) = results[j]
+            predicted_query.append(int(imageName.replace(".jpg", "")))
             print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
 
+        # Append the final predicted list
+        predicted.append(predicted_query)
+
+        # Save the path to the mask and get directions to original mask
         maskPath = imagePath[:-3] + "png"
         ogMask = cv2.imread(maskPath)
         height, width, _ = ogMask.shape
+
+        # Initialize the precision parameters
         tp = 0
         tn = 0
         fp = 0
         fn = 0
 
+        # Loop over the original mask
         for i in range(height):
             for j in range(width):
                 if ogMask[i, j, 0] == 0 and mask[i, j] == 0:
                     tn += 1
                 elif ogMask[i, j, 0] == 0 and mask[i, j] != 0:
-                    fp += 1 
+                    fp += 1
                 elif ogMask[i, j, 0] != 0 and mask[i, j] == 0:
                     fn += 1
                 elif ogMask[i, j, 0] != 0 and mask[i, j] != 0:
                     tp += 1
-        
+
+        # Calculate the parameters
         precision = tp / (tp + fp)
         recall = tp / (tp + fn)
         f1 = 2 * precision * recall / (precision + recall)
 
+        # Add the paramters
         sumPrecision += precision
         sumRecall += recall
         sumF1 += f1
         counter += 1
 
+        # Take the average
         avgPrecision = sumPrecision / counter
         avgRecall = sumRecall / counter
         avgF1 = sumF1 / counter
 
+        # Print the values
         print("Precision: ", avgPrecision * 100, "%")
         print("Recall: ", avgRecall * 100, "%")
         print("F1: ", avgF1 * 100, "%\n")
+
+# Evaluate the map accuracy
+print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
