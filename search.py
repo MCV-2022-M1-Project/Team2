@@ -18,12 +18,14 @@ ap.add_argument("-d", "--dataset", required=True, help="Path to the directory th
 ap.add_argument("-i", "--index", required=False, help="Path to where we stored our index")
 ap.add_argument("-q", "--query", required=True, help="Path to query image")
 ap.add_argument("-b", "--query1", required=True, help="Path to the query images with background")
+ap.add_argument("-m", "--masks", required=True, help="Path to save the masks")
 args = vars(ap.parse_args())
 #args = {}
 #args["dataset"] = "BBDD"
 #args["index"] = "."
 #args["query"] = "qsd1_w1"
 #args["query1"] = "qsd2_w1"
+#args["masks"] = "masks"
 
 # Initialize a Dictionary to store our images and features
 index = {}
@@ -81,6 +83,10 @@ for imagePath in sorted(list_images(args["query1"])):
         # Get the mask for removing background, load the image
         queryImage = cv2.imread(imagePath)
         mask = RemoveBackground.compute_removal(queryImage)
+        pth = args["masks"] + imagePath[-10:-3] + "png"
+        print(imagePath, pth)
+        if not cv2.imwrite(pth, mask * 255):
+            raise Exception("Could not write image")
         queryImage = cv2.bitwise_and(queryImage, queryImage, mask=mask)
         print("query: {}".format(imagePath))
 
@@ -118,14 +124,6 @@ for imagePath in sorted(list_images(args["query1"])):
                     fn += 1
                 elif ogMask[i, j, 0] != 0 and mask[i, j] != 0:
                     tp += 1
-                #if ogMask[i, j, 0] == 0 and ogMask[i, j, 0] == 0:
-                #    tn += 1
-                #elif ogMask[i, j, 0] == 0 and ogMask[i, j, 0] != 0:
-                #    fp += 1 
-                #elif ogMask[i, j, 0] != 0 and ogMask[i, j, 0] == 0:
-                #    fn += 1
-                #elif ogMask[i, j, 0] != 0 and ogMask[i, j, 0] != 0:
-                #    tp += 1
         
         precision = tp / (tp + fp)
         recall = tp / (tp + fn)
