@@ -13,17 +13,17 @@ from packages import RemoveBackground
 # from metrics.average_precision import mapk
 
 # construct the argument parser and parse the arguments
-#ap = argparse.ArgumentParser()
-#ap.add_argument("-d", "--dataset", required=True, help="Path to the directory that contains the images we just indexed")
-#ap.add_argument("-i", "--index", required=False, help="Path to where we stored our index")
-#ap.add_argument("-q", "--query", required=True, help="Path to query image")
-#ap.add_argument("-b", "--query1", required=True, help="Path to the query images with background")
-#args = vars(ap.parse_args())
-args = {}
-args["dataset"] = "BBDD"
-args["index"] = "."
-args["query"] = "qsd1_w1"
-args["query1"] = "qsd2_w1"
+ap = argparse.ArgumentParser()
+ap.add_argument("-d", "--dataset", required=True, help="Path to the directory that contains the images we just indexed")
+ap.add_argument("-i", "--index", required=False, help="Path to where we stored our index")
+ap.add_argument("-q", "--query", required=True, help="Path to query image")
+ap.add_argument("-b", "--query1", required=True, help="Path to the query images with background")
+args = vars(ap.parse_args())
+#args = {}
+#args["dataset"] = "BBDD"
+#args["index"] = "."
+#args["query"] = "qsd1_w1"
+#args["query1"] = "qsd2_w1"
 
 # Initialize a Dictionary to store our images and features
 index = {}
