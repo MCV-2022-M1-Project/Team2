@@ -8,6 +8,7 @@ import collections
 import cv2
 from packages import RemoveBackground
 from packages.average_precicion import mapk
+import os
 
 # Construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -78,22 +79,32 @@ for imagePath in sorted(list_images(args["query"])):
 print("map@ {}: {}".format(5, evaluate(predicted, args["query"] + "/gt_corresps.pkl", k=5)))
 
 # Initialize the parameters
-sumPrecision = 0
-sumRecall = 0
-sumF1 = 0
-counter = 0
+sumPrecision1 = 0
+sumRecall1 = 0
+sumF11 = 0
+counter1 = 0
+sumPrecision2 = 0
+sumRecall2 = 0
+sumF12 = 0
+counter2 = 0
 predicted = []
+if not os.path.exists(args["masks"] + "\\Method1"):
+    os.mkdir(args["masks"] + "\\Method1")
+if not os.path.exists(args["masks"] + "\\Method2"):
+    os.mkdir(args["masks"] + "\\Method2")
 
-# Loop over the second dataset
+# Loop over the second dataset with first method
 for imagePath in sorted(list_images(args["query1"])):
     mask = cv2.Mat
+    mask2 = cv2.Mat
     if "jpg" in imagePath:
         # Get the mask for removing background, load the image
         queryImage = cv2.imread(imagePath)
         mask = RemoveBackground.compute_removal(queryImage)
-        pth = args["masks"] + imagePath[-10:-3] + "png"
-        print(imagePath, pth)
-        if not cv2.imwrite(pth, mask * 255):
+        if not cv2.imwrite(args["masks"] + "\\Method1" + imagePath[-10:-3] + "png", mask * 255):
+            raise Exception("Could not write image")
+        mask2 = RemoveBackground.compute_removal_2(queryImage)
+        if not cv2.imwrite(args["masks"] + "\\Method2" + imagePath[-10:-3] + "png", mask2 * 255):
             raise Exception("Could not write image")
         queryImage = cv2.bitwise_and(queryImage, queryImage, mask=mask)
         print("query: {}".format(imagePath))
@@ -118,48 +129,82 @@ for imagePath in sorted(list_images(args["query1"])):
         predicted.append(predicted_query)
 
         # Save the path to the mask and get directions to original mask
-        maskPath = imagePath[:-3] + "png"
-        ogMask = cv2.imread(maskPath)
+        ogMask = cv2.imread(imagePath[:-3] + "png")
         height, width, _ = ogMask.shape
 
         # Initialize the precision parameters
-        tp = 0
-        tn = 0
-        fp = 0
-        fn = 0
+        tp1 = 0
+        fp1 = 0
+        fn1 = 0
 
         # Loop over the original mask
         for i in range(height):
             for j in range(width):
-                if ogMask[i, j, 0] == 0 and mask[i, j] == 0:
-                    tn += 1
-                elif ogMask[i, j, 0] == 0 and mask[i, j] != 0:
-                    fp += 1
+                if ogMask[i, j, 0] == 0 and mask[i, j] != 0:
+                    fp1 += 1
                 elif ogMask[i, j, 0] != 0 and mask[i, j] == 0:
-                    fn += 1
+                    fn1 += 1
                 elif ogMask[i, j, 0] != 0 and mask[i, j] != 0:
-                    tp += 1
+                    tp1 += 1
 
         # Calculate the parameters
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
-        f1 = 2 * precision * recall / (precision + recall)
+        precision1 = tp1 / (tp1 + fp1)
+        recall1 = tp1 / (tp1 + fn1)
+        f11 = 2 * precision1 * recall1 / (precision1 + recall1)
 
         # Add the paramters
-        sumPrecision += precision
-        sumRecall += recall
-        sumF1 += f1
-        counter += 1
+        sumPrecision1 += precision1
+        sumRecall1 += recall1
+        sumF11 += f11
+        counter1 += 1
 
         # Take the average
-        avgPrecision = sumPrecision / counter
-        avgRecall = sumRecall / counter
-        avgF1 = sumF1 / counter
+        avgPrecision1 = sumPrecision1 / counter1
+        avgRecall1 = sumRecall1 / counter1
+        avgF11 = sumF11 / counter1
 
         # Print the values
-        print("Precision: ", avgPrecision * 100, "%")
-        print("Recall: ", avgRecall * 100, "%")
-        print("F1: ", avgF1 * 100, "%\n")
+        print("Method 1 Precision: ", avgPrecision1 * 100, "%")
+        print("Method 1 Recall: ", avgRecall1 * 100, "%")
+        print("Method 1 F1: ", avgF11 * 100, "%")
+
+        # Initialize the precision parameters
+        tp2 = 0
+        fp2 = 0
+        fn2 = 0
+
+        # Loop over the original mask
+        for i in range(height):
+            for j in range(width):
+                if ogMask[i, j, 0] == 0 and mask2[i, j] != 0:
+                    fp2 += 1
+                elif ogMask[i, j, 0] != 0 and mask2[i, j] == 0:
+                    fn2 += 1
+                elif ogMask[i, j, 0] != 0 and mask2[i, j] != 0:
+                    tp2 += 1
+
+        # Calculate the parameters
+        precision2 = tp2 / (tp2 + fp2)
+        recall2 = tp2 / (tp2 + fn2)
+        f12 = 2 * precision2 * recall2 / (precision2 + recall2)
+
+        # Add the paramters
+        sumPrecision2 += precision2
+        sumRecall2 += recall2
+        sumF12 += f12
+        counter2 += 1
+
+        # Take the average
+        avgPrecision2 = sumPrecision2 / counter2
+        avgRecall2 = sumRecall2 / counter2
+        avgF12 = sumF12 / counter2
+
+        # Print the values
+        print("Method 2 Precision: ", avgPrecision2 * 100, "%")
+        print("Method 2 Recall: ", avgRecall2 * 100, "%")
+        print("Method 2 F1: ", avgF12 * 100, "%\n")
+
+        
 
 # Evaluate the map accuracy
 print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
