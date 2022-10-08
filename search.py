@@ -1,12 +1,10 @@
 # Import required packages
 from imutils.paths import list_images
-from packages import Searcher
-from packages import RGBHistogram
+from packages import Searcher, RGBHistogram, RemoveBackground
 import argparse
 import pickle
 import collections
 import cv2
-from packages import RemoveBackground
 from packages.average_precicion import mapk
 import os
 
@@ -17,6 +15,8 @@ ap.add_argument("-i", "--index", required=False, help="Path to where we stored o
 ap.add_argument("-q", "--query", required=True, help="Path to query image")
 ap.add_argument("-b", "--query1", required=True, help="Path to the query images with background")
 ap.add_argument("-m", "--masks", required=True, help="Path to save the masks")
+ap.add_argument("-r", "--result1", required=True, help="Path to save the results for the first part")
+ap.add_argument("-s", "--result2", required=True, help="Path to save the results for the second part")
 args = vars(ap.parse_args())
 
 
@@ -49,6 +49,7 @@ for imagePath in list_images(args["dataset"]):
 # Sort the dictionary according to the keys
 index = collections.OrderedDict(sorted(index.items()))
 predicted = []
+Results = []
 
 # Load the query images
 for imagePath in sorted(list_images(args["query"])):
@@ -75,8 +76,13 @@ for imagePath in sorted(list_images(args["query"])):
         # Append the final predicted list
         predicted.append(predicted_query)
 
+# Save the results
+with open(args["result1"]+".pkl", "wb") as fp:
+    pickle.dump(predicted, fp)
+
+
 # Evaluate the map accuracy
-print("map@ {}: {}".format(5, evaluate(predicted, args["query"] + "/gt_corresps.pkl", k=5)))
+print("map@ {}: {}".format(1, evaluate(predicted, args["query"] + "/gt_corresps.pkl", k=1)))
 
 # Initialize the parameters
 sumPrecision1 = 0
@@ -88,6 +94,11 @@ sumRecall2 = 0
 sumF12 = 0
 counter2 = 0
 predicted = []
+predicted_2 = []
+Results = []
+
+if not os.path.exists(args["masks"]):
+    os.mkdir(args["masks"])
 if not os.path.exists(args["masks"] + "\\Method1"):
     os.mkdir(args["masks"] + "\\Method1")
 if not os.path.exists(args["masks"] + "\\Method2"):
@@ -106,27 +117,41 @@ for imagePath in sorted(list_images(args["query1"])):
         mask2 = RemoveBackground.compute_removal_2(queryImage)
         if not cv2.imwrite(args["masks"] + "\\Method2" + imagePath[-10:-3] + "png", mask2 * 255):
             raise Exception("Could not write image")
-        queryImage = cv2.bitwise_and(queryImage, queryImage, mask=mask)
+        #queryImage = cv2.bitwise_and(queryImage, queryImage, mask=mask)
         print("query: {}".format(imagePath))
 
         # Describe a 3D RGB histogram with 8 bins per channel
-        desc = RGBHistogram((8, 8, 8), None)
+        desc = RGBHistogram((8, 8, 8), mask)
         queryFeatures = desc.compute_histogram(queryImage)
+
+        desc_2 = RGBHistogram((8, 8, 8), mask2)
+        queryFeatures_2 = desc_2.compute_histogram(queryImage)
 
         # Perform the search
         searcher = Searcher(index)
         results = searcher.search(queryFeatures)
+        results_2 = searcher.search(queryFeatures_2)
+
         predicted_query = []
+        predicted_query_2 = []
 
         # Loop over the top ten results
+        print("Method1:")
         for j in range(0, 10):
             # Grab the result
             (score, imageName) = results[j]
             predicted_query.append(int(imageName.replace(".jpg", "")))
             print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
 
+        print("Method2:")
+        for j in range(0, 10):
+            (score_2, imageName_2) = results_2[j]
+            predicted_query_2.append(int(imageName_2.replace(".jpg", "")))
+            print("\t{}. {} : {:.3f}".format(j + 1, imageName_2, score_2))
+
         # Append the final predicted list
         predicted.append(predicted_query)
+        predicted_2.append(predicted_query_2)
 
         # Save the path to the mask and get directions to original mask
         ogMask = cv2.imread(imagePath[:-3] + "png")
@@ -204,7 +229,15 @@ for imagePath in sorted(list_images(args["query1"])):
         print("Method 2 Recall: ", avgRecall2 * 100, "%")
         print("Method 2 F1: ", avgF12 * 100, "%\n")
 
-        
+with open(args["result2"]+"_1.pkl", "wb") as fp:
+    pickle.dump(predicted, fp)
+
+with open(args["result2"]+"_2.pkl", "wb") as fp:
+    pickle.dump(predicted_2, fp)
 
 # Evaluate the map accuracy
-print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
+print("Method1: map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
+print("Method1: map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
+
+print("Method2: map@ {}: {}".format(1, evaluate(predicted_2, args["query1"] + "/gt_corresps.pkl", k=1)))
+print("Method2: map@ {}: {}".format(5, evaluate(predicted_2, args["query1"] + "/gt_corresps.pkl", k=5)))
