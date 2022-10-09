@@ -16,9 +16,9 @@ ap.add_argument("-q", "--query", required=True, help="Path to query image")
 ap.add_argument("-b", "--query1", required=True, help="Path to the query images with background")
 ap.add_argument("-t", "--test", required=True, help="Path to the test query images")
 ap.add_argument("-m", "--masks", required=True, help="Path to save the masks")
-ap.add_argument("-r", "--result1", default="output1.pkl", help="Path to save the results for the first part")
-ap.add_argument("-s", "--result2", default="output2.pkl", help="Path to save the results for the second part")
-ap.add_argument("-s", "--result3", default="output3.pkl", help="Path to save the results for the test part")
+ap.add_argument("-r1", "--result1", default="output1", help="Path to save the results for the first part")
+ap.add_argument("-r2", "--result2", default="output2", help="Path to save the results for the second part")
+ap.add_argument("-r3", "--result3", default="output3", help="Path to save the results for the test part")
 args = vars(ap.parse_args())
 
 
@@ -103,10 +103,11 @@ Results = []
 # Check if directory exists for the masks
 if not os.path.exists(args["masks"]):
     os.mkdir(args["masks"])
-if not os.path.exists(args["masks"] + "\\Method1"):
-    os.mkdir(args["masks"] + "\\Method1")
-if not os.path.exists(args["masks"] + "\\Method2"):
-    os.mkdir(args["masks"] + "\\Method2")
+if not os.path.exists(args["masks"] + "\\method1"):
+    os.mkdir(args["masks"] + "\\method1")
+if not os.path.exists(args["masks"] + "\\method2"):
+    os.mkdir(args["masks"] + "\\method2")
+
 
 # Loop over the second dataset with first method
 for imagePath in sorted(list_images(args["query1"])):
@@ -119,10 +120,10 @@ for imagePath in sorted(list_images(args["query1"])):
         mask = RemoveBackground.compute_removal(queryImage)
 
         # Save the masks for both the methods
-        if not cv2.imwrite(args["masks"] + "\\Method1" + imagePath[-10:-3] + "png", mask * 255):
+        if not cv2.imwrite(args["masks"] + "\\method1" + imagePath[-10:-3] + "png", mask * 255):
             raise Exception("Could not write image")
         mask2 = RemoveBackground.compute_removal_2(queryImage)
-        if not cv2.imwrite(args["masks"] + "\\Method2" + imagePath[-10:-3] + "png", mask2 * 255):
+        if not cv2.imwrite(args["masks"] + "\\method2" + imagePath[-10:-3] + "png", mask2 * 255):
             raise Exception("Could not write image")
 
         # Print the query image ame
@@ -261,12 +262,11 @@ print("Method2: map@ {}: {}".format(5, evaluate(predicted_2, args["query1"] + "/
 for imagePath in sorted(list_images(args["test"])):
     if "jpg" in imagePath:
         queryImage = cv2.imread(imagePath)
-        mask = RemoveBackground.compute_removal(queryImage)
         print("query: {}".format(imagePath))
 
         # Describe a 3D RGB histogram with 8 bins per channel
-        desc = RGBHistogram((8, 8, 8), mask)
-        queryFeatures = desc.compute_histogram(queryImage)
+        desc = RGBHistogram((8, 8, 8), None)
+        queryFeatures = desc.compute_labHistogram(queryImage)
 
         # Perform the search
         searcher = Searcher(index)
@@ -282,6 +282,7 @@ for imagePath in sorted(list_images(args["test"])):
 
         # Append the final predicted list
         predicted.append(predicted_query)
+
 
 # Save the results
 with open(args["result3"] + ".pkl", "wb") as fp:
