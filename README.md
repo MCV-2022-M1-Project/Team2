@@ -9,11 +9,13 @@ Before running the project, make sure you have installed the following packages:
 - imutils
 - argparse
 - collections
+- pickle
 
 ## Run
 Start the project running the following:
 ```
-python ./search.py -d (folder of the database) -i (path to store indexs) -q (folder of the first query) -b (folder of the second query)
+python ./search.py -d (folder of the database) -i (path to store indexs) -q (folder of the first query) -b (folder of the second query) 
+        -t (Path to the test query)  -m (path to store the masks)
 ```
 ### Parameters
 -d: Path to the folder of the database
@@ -24,3 +26,6 @@ python ./search.py -d (folder of the database) -i (path to store indexs) -q (fol
 
 -b: Path to the folder of the query 2
 
+-t: Path to the folder of the test query 1
+
+-m: Path to the folder where you want to save the masks
