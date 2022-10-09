@@ -14,8 +14,8 @@ Before running the project, make sure you have installed the following packages:
 ## Run
 Start the project running the following:
 ```
-python ./search.py -d (folder of the database) -i (path to store indexs) -q (folder of the first query) -b (folder of the second query) 
-        -t (Path to the test query)  -m (path to store the masks)
+python ./search.py -d (folder of the database) -i (path to store indexes) -q (folder of the first query) -b (folder of the second query) 
+        -t (path to the test query)  -m (path to store the masks)
 ```
 ### Parameters
 -d: Path to the folder of the database
