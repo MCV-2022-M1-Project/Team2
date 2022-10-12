@@ -30,7 +30,7 @@ for imagePath in list_images(args["dataset"]):
 
         # Load the image, compute histogram and update the index
         image = cv2.imread(imagePath)
-        features = descriptor.compute_histogram(image)
+        features = descriptor.computeHSV(image)
         index[path] = features
 
 # Sort the dictionary according to the keys
