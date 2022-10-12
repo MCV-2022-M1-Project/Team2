@@ -2,6 +2,7 @@
 import csv
 import collections
 from packages import RGBHistogram
+from packages import HistogramDescriptor
 from imutils.paths import list_images
 import argparse
 import pickle
@@ -18,7 +19,7 @@ args = vars(ap.parse_args())
 index = {}
 
 # Initialize image descriptor
-descriptor = RGBHistogram([8, 8, 8])
+descriptor = HistogramDescriptor([8, 8, 8])
 print("Indexing images")
 
 # Use list_images to grab the image paths and loop over them

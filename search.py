@@ -1,6 +1,6 @@
 # Import required packages
 from imutils.paths import list_images
-from packages import Searcher, RGBHistogram, RemoveBackground
+from packages import Searcher, RGBHistogram, RemoveBackground, HistogramDescriptor
 import argparse
 import pickle
 import collections
