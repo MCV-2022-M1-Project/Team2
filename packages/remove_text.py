@@ -87,11 +87,52 @@ class RemoveText:
 
         return bbox
 
+    def text_background_detection(self, bbox):
+        # Get histogram of bbox area
+        hist = [[0] * 256, [0] * 256, [0] * 256]
+        for i in range(bbox[0], bbox[2]):
+            for j in range(bbox[1], bbox[3]):
+                hist[0][self.image[j][i][0]] += 1
+                hist[1][self.image[j][i][1]] += 1
+                hist[2][self.image[j][i][2]] += 1
+        
+        # Get the most represented color in the bbox assuming it will always be the text background
+        maxVal = [max(hist[0]), max(hist[1]), max(hist[2])]
+        maxIndex = [hist[0].index(maxVal[0]), hist[1].index(maxVal[1]), hist[2].index(maxVal[2])]
+
+        # Get a mask for the color
+        err = 1
+        textBackground = self.image * 0
+        for i in range(self.image.shape[0]):
+            for j in range(self.image.shape[1]):
+                if self.image[i][j][0] <= maxIndex[0] + err and self.image[i][j][0] >= maxIndex[0] - err and self.image[i][j][1] <= maxIndex[1] + err and self.image[i][j][1] >= maxIndex[1] - err and self.image[i][j][2] <= maxIndex[2] + err and self.image[i][j][2] >= maxIndex[2] - err: 
+                    textBackground[i][j] = 255
+
+        # Perform horizontal closing
+        kernel_hor = np.ones((1, int(self.image.shape[1] / 8)), np.uint8)
+        textBackground = cv2.dilate(textBackground, kernel_hor, iterations=1)
+        textBackground = cv2.erode(textBackground, kernel_hor, iterations=1)
+
+        # Perform vertical closing
+        kernel_vert = np.array([[1], [1], [1]])
+        textBackground = cv2.dilate(textBackground, kernel_vert, iterations=1)
+        textBackground = cv2.erode(textBackground, kernel_vert, iterations=1)
+
+        #cv2.imshow("Text background", textBackground)
+        #cv2.waitKey(0)
+
+        # Return the processed image
+        return (cv2.cvtColor(textBackground, cv2.COLOR_BGR2GRAY) != 0).astype(np.uint8)
+
     def text_extraction(self):
         sum = self.preProcess()
         (T, threshInv) = cv2.threshold(sum, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         bbox = self.textSearch(threshInv)
+        textBackground = self.text_background_detection(bbox)
+        (T, threshInv) = cv2.threshold(textBackground, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        bbox = self.textSearch(threshInv)
 
-        print('[INFO] BBOX: ', bbox)
-        print(" ")
+        print('[INFO] BBOX: ', bbox, '\n')
+        
+
         return bbox
