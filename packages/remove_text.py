@@ -3,6 +3,13 @@ import numpy as np
 import cv2
 import os
 
+import numpy as np
+import cv2
+import os
+from PIL import Image, ImageFilter
+from skimage.io import imread
+from skimage.filters import unsharp_mask
+
 
 class RemoveText:
     def __init__(self, image):
@@ -16,8 +23,11 @@ class RemoveText:
 
         # Define a threshold and make the values below it 0
         threshold = 150
-        tophat[(tophat[:, :, 0] < threshold) | (tophat[:, :, 1] < threshold) | (tophat[:, :, 2] < threshold)] = (0, 0, 0)
-        blackhat[(blackhat[:, :, 0] < threshold) | (blackhat[:, :, 1] < threshold) | (blackhat[:, :, 2] < threshold)] = (0, 0, 0)
+        tophat[(tophat[:, :, 0] < threshold) | (tophat[:, :, 1] < threshold) | (tophat[:, :, 2] < threshold)] = (
+        0, 0, 0)
+        blackhat[
+            (blackhat[:, :, 0] < threshold) | (blackhat[:, :, 1] < threshold) | (blackhat[:, :, 2] < threshold)] = (
+        0, 0, 0)
 
         # Perform a series of erosions and dilations on the tophat and blackhat
         kernelzp = np.ones((1, int(self.image.shape[1] / 8)), np.uint8)
@@ -33,8 +43,13 @@ class RemoveText:
         # Sum the operations
         img_sum = tophat + blackhat
 
+        # Apply an unsharp mask to sum of tophat and blackhat
+        im_sharped = img_sum
+        for i in range(3):
+            im_sharped[..., i] = unsharp_mask(img_sum[..., i], radius=40, amount=1.2)
+
         # Return the processed image
-        return (cv2.cvtColor(img_sum, cv2.COLOR_BGR2GRAY) != 0).astype(np.uint8)
+        return (cv2.cvtColor(im_sharped, cv2.COLOR_BGR2GRAY) != 0).astype(np.uint8)
 
     def textSearch(self, thresh):
         # Apply connected component analysis on the image
@@ -75,7 +90,7 @@ class RemoveText:
         y1 = stats[maxArea_index][1]
         w1 = stats[maxArea_index][2]
         h1 = stats[maxArea_index][3]
-        bbox = [x1, y1, x1+w1, y1+h1]
+        bbox = [x1, y1, x1 + w1, y1 + h1]
 
         return bbox
 
