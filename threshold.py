@@ -5,7 +5,7 @@ from skimage.filters import threshold_local
 import argparse
 import cv2
 import time
-
+from packages import RemoveText
 
 
 
@@ -44,24 +44,9 @@ def BFS(thresh):
         
     return mask
 
-def count_painting(mask):
-    row, col = thresh.shape
-    row_see = row//2
-    col_see = col//2
-    count_v = 0
-    count_h = 0
-    cont = False
-    for j in range(col):
-        if not cont and mask[row_see, j] > 0:
-            cont = True
-            count_h += 1
-        elif cont and mask[row_see, j] <= 0:
-            cont = False
-
-
 # Construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
-ap.add_argument("-i", "--image", default="../qsd2_w2/00009.jpg", help="Path to the image")
+ap.add_argument("-i", "--image", default="./qsd2_w2/00009.jpg", help="Path to the image")
 args = vars(ap.parse_args())
 
 # Load the image, convert it to grayscale, and blur it 
@@ -109,3 +94,10 @@ for i in range(1,len(stats)):
     
     cv2.imwrite(str(i)+"_mask_res.png", th_open[bb[1]:bb[1]+bb[4],bb[0]:bb[0]+bb[2]])
     cv2.imwrite(str(i)+"_paint_res.png", image[bb[1]:bb[1]+bb[4],bb[0]:bb[0]+bb[2],:])
+    
+    
+    text_id = RemoveText(image[bb[1]:bb[1]+bb[4],bb[0]:bb[0]+bb[2],:])
+    bbox = text_id.text_extraction()
+    
+    image_rec = cv2.rectangle(image[bb[1]:bb[1]+bb[4],bb[0]:bb[0]+bb[2],:], (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 0, 255), 4)
+    cv2.imwrite('test/'+str(i)+"_"+args["image"][-9:], image_rec)
