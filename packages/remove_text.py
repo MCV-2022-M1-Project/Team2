@@ -10,39 +10,34 @@ class RemoveText:
 
     def preProcess(self):
         # Define Kernel size and perform topHat and blackhat operations
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 30))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 20))
         tophat = cv2.morphologyEx(self.image, cv2.MORPH_TOPHAT, kernel)
         blackhat = cv2.morphologyEx(self.image, cv2.MORPH_BLACKHAT, kernel)
 
         # Define a threshold and make the values below it 0
         threshold = 150
-        tophat[(tophat[:, :, 0] < threshold) | (tophat[:, :, 1] < threshold) | (tophat[:, :, 2] < threshold)] = (
-        0, 0, 0)
+        tophat[(tophat[:, :, 0] < threshold) | (tophat[:, :, 1] < threshold) | (tophat[:, :, 2] < threshold)] = \
+            (0, 0, 0)
         blackhat[
-            (blackhat[:, :, 0] < threshold) | (blackhat[:, :, 1] < threshold) | (blackhat[:, :, 2] < threshold)] = (
-        0, 0, 0)
+            (blackhat[:, :, 0] < threshold) | (blackhat[:, :, 1] < threshold) | (blackhat[:, :, 2] < threshold)] =\
+            (0, 0, 0)
 
         # Perform a series of erosions and dilations on the tophat and blackhat
         kernelzp = np.ones((1, int(self.image.shape[1] / 8)), np.uint8)
-        # kernelzp = cv2.getStructuringElement(cv2.MORPH_RECT, (int(self.image.shape[1] / 8),
-        # int(self.image.shape[1] / 8)))
 
         tophat = cv2.dilate(tophat, kernelzp, iterations=1)
         tophat = cv2.erode(tophat, kernelzp, iterations=1)
 
-        # blackhat = cv2.dilate(tophat, kernelzp, iterations=1)
-        # blackhat = cv2.erode(tophat, kernelzp, iterations=1)
-
         # Sum the operations
-        img_sum = tophat + blackhat
+        image = tophat + blackhat
 
         # Apply an unsharp mask to sum of tophat and blackhat
-        im_sharped = img_sum
+        image_sharped = image
         for i in range(3):
-            im_sharped[..., i] = unsharp_mask(img_sum[..., i], radius=40, amount=1.2)
+            image_sharped[..., i] = unsharp_mask(image[..., i], radius=40, amount=1.2)
 
         # Return the processed image
-        return (cv2.cvtColor(im_sharped, cv2.COLOR_BGR2GRAY) != 0).astype(np.uint8)
+        return (cv2.cvtColor(image_sharped, cv2.COLOR_BGR2GRAY) != 0).astype(np.uint8)
 
     def textSearch(self, thresh):
         # Apply connected component analysis on the image
@@ -72,19 +67,22 @@ class RemoveText:
             area1 = stats[h + 1][2] * stats[h + 1][3]
             if area1 > (areaImage / 2):
                 continue
-
+            # Update max area parameter
             if maxArea_value < areas[h]:
                 maxArea_value = areas[h]
 
+        # Calculate index
         if areas:
             maxArea_index = areas.index(maxArea_value) + 1
 
+        # Calculate bounding box of text
         x1 = stats[maxArea_index][0]
         y1 = stats[maxArea_index][1]
         w1 = stats[maxArea_index][2]
         h1 = stats[maxArea_index][3]
         bbox = [x1, y1, x1 + w1, y1 + h1]
 
+        # Return the bounding box
         return bbox
 
     def text_background_detection(self, bbox):
@@ -95,7 +93,7 @@ class RemoveText:
                 hist[0][self.image[j][i][0]] += 1
                 hist[1][self.image[j][i][1]] += 1
                 hist[2][self.image[j][i][2]] += 1
-        
+
         # Get the most represented color in the bbox assuming it will always be the text background
         maxVal = [max(hist[0]), max(hist[1]), max(hist[2])]
         maxIndex = [hist[0].index(maxVal[0]), hist[1].index(maxVal[1]), hist[2].index(maxVal[2])]
@@ -105,7 +103,9 @@ class RemoveText:
         textBackground = self.image * 0
         for i in range(self.image.shape[0]):
             for j in range(self.image.shape[1]):
-                if self.image[i][j][0] <= maxIndex[0] + err and self.image[i][j][0] >= maxIndex[0] - err and self.image[i][j][1] <= maxIndex[1] + err and self.image[i][j][1] >= maxIndex[1] - err and self.image[i][j][2] <= maxIndex[2] + err and self.image[i][j][2] >= maxIndex[2] - err: 
+                if maxIndex[0] + err >= self.image[i][j][0] >= maxIndex[0] - err and maxIndex[1] + err >= \
+                        self.image[i][j][1] >= maxIndex[1] - err and maxIndex[2] + err >= self.image[i][j][2] >= \
+                        maxIndex[2] - err:
                     textBackground[i][j] = 255
 
         # Perform horizontal closing
@@ -118,21 +118,22 @@ class RemoveText:
         textBackground = cv2.dilate(textBackground, kernel_vert, iterations=1)
         textBackground = cv2.erode(textBackground, kernel_vert, iterations=1)
 
-        #cv2.imshow("Text background", textBackground)
-        #cv2.waitKey(0)
-
         # Return the processed image
         return (cv2.cvtColor(textBackground, cv2.COLOR_BGR2GRAY) != 0).astype(np.uint8)
 
-    def text_extraction(self):
-        sum = self.preProcess()
-        (T, threshInv) = cv2.threshold(sum, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    def extract_text(self):
+        # Preprocess the image
+        preProcessedImage = self.preProcess()
+
+        # Apply OTSU threshold and compute bounding box
+        (T, threshInv) = cv2.threshold(preProcessedImage, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         bbox = self.textSearch(threshInv)
+
+        # Filter the bounding boxes
         textBackground = self.text_background_detection(bbox)
         (T, threshInv) = cv2.threshold(textBackground, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         bbox = self.textSearch(threshInv)
 
+        # Print and return the bounding
         print('[INFO] BBOX: ', bbox, '\n')
-        
-
         return bbox
