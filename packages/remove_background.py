@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image
 import cv2
-
+from skimage.filters import threshold_local
 
 class RemoveBackground:
     @staticmethod
@@ -57,7 +57,7 @@ class RemoveBackground:
                     final = j
             if found_first:
                 mask[i, first:final] = 1
-
+        
         # Reconstruct painting by columns
         for j in range(col):
             first = 0
@@ -72,7 +72,7 @@ class RemoveBackground:
                     final = i
             if found_first:
                 mask[first:final, j] = 1
-
+        
         ######
         # Erase small objects by columns
         for j in range(col):
@@ -123,98 +123,66 @@ class RemoveBackground:
                         mask[first:final, j] = 0
 
         # Return the mask
-        return mask.astype("uint8")
+        mask = mask.astype("uint8")
+        num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(mask)
+
+        return (mask.astype("uint8"), stats)
 
     @staticmethod
-    def compute_removal_2(data):
-        # Define thresholds
-        threshold = 40
-        threshold_2 = 30
+    def compute_removal_2(image):
+        image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Convert image to PIL image
-        img = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
-        image = Image.fromarray(img)
+        kernel = np.ones((5,5),np.float32)/(5*5)
+        blurred = cv2.filter2D(image_gray,-1,kernel)
 
-        # Convert image to RGBA
-        im = image.convert('RGBA')
-        data = np.array(im)
+        # Use Scikit Learn
+        T = threshold_local(blurred, 29, offset=5, method="gaussian")
+        thresh = (blurred < T).astype("uint8") * 255
 
-        # Get the color histogram of the image
-        histogram = image.histogram()
+        kernel = np.ones((5, 5), np.uint8)
+        thresh_dilated = cv2.dilate(thresh, kernel, iterations=1)
 
-        # Take only the Red counts
-        l1 = histogram[0:256]
+        bfs_threh = RemoveBackground.BFS(thresh_dilated)
 
-        # Take only the Blue counts
-        l2 = histogram[256:512]
+        kernel = np.ones((40, 40), np.uint8)
+        th_open = cv2.morphologyEx(bfs_threh, cv2.MORPH_OPEN, kernel)
+        th_open = cv2.morphologyEx(th_open, cv2.MORPH_CLOSE, kernel)
 
-        # Take only the Green counts
-        l3 = histogram[512:768]
+        num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(th_open)
 
-        th = 10  # Window to compare peak
-        # Search peak for red
-        topR = 230
-        for i in range(230, 0, -1):
-            if l1[i] >= l1[topR]:
-                topR = i
-            elif topR - i > th:
-                break
+        return (th_open, stats)
 
-        # Search peak for green
-        topG = 230
-        for i in range(230, 0, -1):
-            if l2[i] >= l2[topG]:
-                topG = i
-            elif topG - i > th:
-                break
+    @staticmethod
+    def BFS(thresh):
+        queue = []
+        row, col = thresh.shape
+        mask = np.ones((row,col)).astype("uint8")*255
+        mask[0,0] = 0
+        queue = [(0,0)]
 
-        # Search peak for blue
-        topB = 230
-        for i in range(230, 0, -1):
-            if l3[i] >= l3[topB]:
-                topB = i
-            elif topB - i > th:
-                break
+        while len(queue) > 0:
+            i,j = queue[0]
+            queue.pop(0)
 
-        #########################
-        # Search for first minimum after peak in red channel
-        th = 10
-        botR = topB
-        for i in range(topB, 0, -1):
-            if l1[i] <= l1[botR]:
-                botR = i
-            elif botR - i > th:
-                break
 
-        # Search for first minimum after peak in green channel
-        botG = topG
-        for i in range(topB, 0, -1):
-            if l2[i] <= l2[botG]:
-                botG = i
-            elif botG - i > th:
-                break
+            if i-1 >= 0 and thresh[i-1, j] <= 0:
+                if (i-1,j) not in queue and mask[i-1,j] > 0: 
+                    queue.append((i-1,j))
+                    mask[i-1,j] = 0
 
-        # Search for first minimum after peak in blue channel
-        botB = topB
-        for i in range(topB, 0, -1):
-            if l3[i] <= l3[botB]:
-                botB = i
-            elif botB - i > th:
-                break
+            if i+1 < row and thresh[i+1, j] <= 0:
+                if (i+1,j) not in queue and mask[i+1,j] > 0:
+                    queue.append((i+1,j))
+                    mask[i+1,j] = 0
 
-        # Define the values
-        botR_shadow = botR - 120
-        botG_shadow = botG - 120
-        botB_shadow = botB - 120
+            if j-1 >= 0 and thresh[i, j-1] <= 0:
+                if (i,j-1) not in queue and mask[i,j-1] > 0:
+                    queue.append((i,j-1))
+                    mask[i,j-1] = 0
 
-        # Create the masks
-        mask = np.logical_not((data[:, :, 0] > botR - threshold) & (data[:, :, 1] > botG - threshold) & (
-                    data[:, :, 2] > botB - threshold))
-        mask = np.logical_and(mask, np.logical_not(
-            (data[:, :, 0] > botR_shadow - threshold_2 + 10) & (data[:, :, 0] < botR_shadow + threshold_2) & (
-                        data[:, :, 1] > botG_shadow - threshold_2 + 10) & (
-                        data[:, :, 1] < botG_shadow + threshold_2) & (
-                        data[:, :, 2] > botB_shadow - threshold_2 + 10) & (data[:, :, 2] < botB_shadow + threshold_2)))
-
-        # Return the mask
-        return mask.astype("uint8")
+            if j+1 < col and thresh[i, j+1] <= 0:
+                if (i,j+1) not in queue and mask[i,j+1] > 0:
+                    queue.append((i,j+1))
+                    mask[i,j+1] = 0
+            
+        return mask

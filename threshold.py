@@ -5,7 +5,8 @@ from skimage.filters import threshold_local
 import argparse
 import cv2
 import time
-from packages import RemoveText
+
+from packages import RemoveText, RemoveBackground
 
 
 
@@ -51,43 +52,8 @@ args = vars(ap.parse_args())
 
 # Load the image, convert it to grayscale, and blur it 
 image = cv2.imread(args["image"])
-image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-kernel = np.ones((5,5),np.float32)/(5*5)
-blurred = cv2.filter2D(image_gray,-1,kernel)
-
-#blurred = cv2.GaussianBlur(image, (5, 5), 0)
-#cv2.imshow("Image", image)
-
-# Use OpenCv Adaptive threshold
-#thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 25, 15)
-#cv2.imshow("OpenCV Mean Thresh", thresh)
-
-# Use Scikit Learn
-T = threshold_local(blurred, 29, offset=5, method="gaussian")
-thresh = (blurred < T).astype("uint8") * 255
-cv2.imwrite("1_mask_thresh.png", thresh)
-
-kernel = np.ones((5, 5), np.uint8)
-thresh_dilated = cv2.dilate(thresh, kernel, iterations=1)
-
-
-
-start_time = time.time()
-bfs_threh = BFS(thresh_dilated)
-cv2.imwrite("2_mask.png", bfs_threh)
-print("--- %s seconds ---" % (time.time() - start_time))
-
-kernel = np.ones((40, 40), np.uint8)
-th_open = cv2.morphologyEx(bfs_threh, cv2.MORPH_OPEN, kernel)
-th_open = cv2.morphologyEx(th_open, cv2.MORPH_CLOSE, kernel)
-
-
-
-
-cv2.imwrite("3_mask_closed.png", th_open)
-
-num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(th_open)
+th_open, stats = RemoveBackground.compute_removal(image)
 
 for i in range(1,len(stats)):
     bb = stats[i]
