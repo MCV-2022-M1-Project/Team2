@@ -142,16 +142,17 @@ class RemoveBackground:
         kernel = np.ones((5, 5), np.uint8)
         thresh_dilated = cv2.dilate(thresh, kernel, iterations=1)
 
-        # 
-        num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(thresh_dilated+1, connectivity = 4)
+        bfs_threh = RemoveBackground.BFS(thresh_dilated)
+        """
+        num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStatsWithAlgorithm(thresh_dilated+1, connectivity = 8, ltype = cv2.CV_32S, ccltype = cv2.CCL_GRANA)
 
         # Search the background label
         label = 0
-        while stats[label][0] != 0 and stats[label][1]: label += 1
+        while stats[label][0] != 0 and stats[label][1] != 0: label += 1
 
         # Erase the background
         bfs_threh = (np.logical_not(labels == label)*255).astype("uint8")
-
+        """
         
         kernel = np.ones((40, 40), np.uint8)
         th_open = cv2.morphologyEx(bfs_threh, cv2.MORPH_OPEN, kernel)
