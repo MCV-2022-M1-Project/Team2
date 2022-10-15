@@ -18,7 +18,7 @@ th_open, stats = RemoveBackground.compute_removal_2(image)
 desc = HistogramDescriptor([8, 8, 8])
 index = pickle.loads(open("index.pkl", "rb").read())
 
-for i in range(1, len(stats)):
+for i in range(0, len(stats)):
     bb = stats[i]
     image1 = image.copy()
 
