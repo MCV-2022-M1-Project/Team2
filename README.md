@@ -10,6 +10,7 @@ Before running the project, make sure you have installed the following packages:
 - argparse
 - collections
 - pickle
+- skimage
 
 ## Run
 Start the project running the following:
