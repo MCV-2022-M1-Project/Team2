@@ -42,3 +42,32 @@ class TextureDescriptors:
 
         # Return the histogram
         return histogram
+
+    def compute_histogram_blocks(self, image, text_box=None, block_size=16):
+
+        if text_box:
+            tlx = text_box[0]
+            tly = text_box[1]
+            brx = text_box[2]
+            bry = text_box[3]
+
+        # hist_concatenated = None
+
+        if not text_box:
+            histogram = self.compute_hog(image)
+
+        # If there's a text bounding box ignore the pixels inside it
+        else:
+            img_cell_vector = []
+
+            for x in range(image.shape[1] - 1):
+                for y in range(image.shape[0] - 1):
+                    if not (tlx < x < brx and tly < y < bry):
+                        img_cell_vector.append(image[y, x, :])
+
+            img_cell_vector = np.asarray(img_cell_vector)
+            if img_cell_vector.size != 0:
+                img_cell_matrix = np.reshape(img_cell_vector, (img_cell_vector.shape[0], 1, -1))
+                histogram = self.compute_hog(img_cell_matrix)
+
+        return histogram

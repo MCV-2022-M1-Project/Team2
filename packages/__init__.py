@@ -6,3 +6,4 @@ from .histogram import HistogramDescriptor
 from .remove_text import RemoveText
 from .iou import bb_intersection_over_union
 from .texture import TextureDescriptors
+from .ocr import read_text
