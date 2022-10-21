@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 from skimage import feature
 from skimage.feature import hog
+import pywt
+from scipy.fftpack import dct, idct
 
 
 class TextureDescriptors:
@@ -27,21 +29,14 @@ class TextureDescriptors:
         return histogram
 
     def compute_lbp(self, image, numPoints=8, radius=2, eps=1e-7):
-        # Convert image to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        lbps = [feature.local_binary_pattern(image[:, :, i], numPoints, radius, method="uniform")
+                for i in range(3)]
+        lbps_hist = [np.histogram(lbp.ravel(), bins=np.arange(0, numPoints + 3), range=(0, numPoints + 2))
+                     for lbp in lbps]
 
-        # Calculate the Local binary pattern
-        lbp = feature.local_binary_pattern(gray, numPoints, radius, method="uniform")
-
-        # Convert them to histogram
-        histogram = cv2.calcHist([lbp.astype(np.uint8)], [0], None, [numPoints + 2], [0, numPoints + 2])
-
-        # Normalize the histogram
-        histogram = cv2.normalize(histogram, histogram, alpha=0, beta=1,
-                                  norm_type=cv2.NORM_MINMAX)
-
-        # Return the histogram
-        return histogram
+        lbps_hist = np.concatenate(lbps_hist, axis=0)
+        # lbps_hist = lbps_hist/np.sum(lbps_hist)
+        return lbps_hist
 
     def compute_histogram_blocks(self, image, text_box=None, block_size=16):
 
@@ -68,6 +63,6 @@ class TextureDescriptors:
             img_cell_vector = np.asarray(img_cell_vector)
             if img_cell_vector.size != 0:
                 img_cell_matrix = np.reshape(img_cell_vector, (img_cell_vector.shape[0], 1, -1))
-                histogram = self.compute_hog(img_cell_matrix)
+                histogram = self.compute_lbp(img_cell_matrix)
 
         return histogram

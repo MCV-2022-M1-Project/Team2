@@ -5,7 +5,7 @@ import pickle
 import cv2
 from imutils.paths import list_images
 
-from packages import HistogramDescriptor, RemoveText, Searcher, RGBHistogram, RemoveBackground
+from packages import HistogramDescriptor, RemoveText, Searcher, RGBHistogram, RemoveBackground, TextureDescriptors, read_text
 from packages.average_precicion import mapk
 
 
@@ -19,16 +19,16 @@ def evaluate(predicted, ground_truth, k):
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
-ap.add_argument("-q1", "--query1", default="../dataset/qsd2_w1", help="Path to the query image")
+ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w3", help="Path to the query image")
 ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
-
 args = vars(ap.parse_args())
 
 # Initialize a Dictionary to store our images and features
 index = {}
 
 # Initialize image descriptor
-descriptor = HistogramDescriptor((8, 8, 8))
+# descriptor = HistogramDescriptor((8, 8, 8))
+descriptor = TextureDescriptors()
 print("Indexing images")
 
 # Use list_images to grab the image paths and loop over them
@@ -39,11 +39,33 @@ for imagePath in list_images(args["index"]):
 
         # Load the image, compute histogram and update the index
         image = cv2.imread(imagePath)
-        features = descriptor.computeHSV(image)
+        features = descriptor.compute_histogram_blocks(image)
         index[path] = features
+
+# Initialize a Dictionary to store texts
+index_text = {}
+
+# Use list_images to grab the image paths and loop over them
+for imagePath in list_images(args["index"]):
+    if "txt" in imagePath:
+        # Extract our unique image ID (i.e. the filename)
+        path = imagePath[imagePath.rfind("_") + 1:]
+
+        # Open the text file and read contents
+        file = open(imagePath, "r")
+        line = file.readline()
+        if line.strip():
+            text = line.lower().replace("(", "").replace("'", " ").replace(")", "")
+        else:
+            text = 'empty'
+
+        # Add the text to list of dictionaries
+        index_text[path] = text
 
 # Sort the dictionary according to the keys
 index = collections.OrderedDict(sorted(index.items()))
+index_text = collections.OrderedDict(sorted(index_text.items()))
+text_query = []
 predicted = []
 Results = []
 bounding_boxes = []
@@ -52,22 +74,29 @@ bounding_boxes = []
 for imagePath1 in sorted(list_images(args["query1"])):
     if "jpg" in imagePath1:
         queryImage = cv2.imread(imagePath1)
+        queryImage1 = queryImage.copy()
         print("query: {}".format(imagePath1))
 
-        # text_id = RemoveText(queryImage)
-        # bbox = text_id.extract_text()
+        text_id = RemoveText(queryImage)
+        bbox = text_id.extract_text()
+        text = read_text(queryImage, bbox)
+        image = cv2.rectangle(queryImage1, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 0, 255), 4)
+        # cv2.imshow("image", image)
+        # cv2.waitKey(0)
         # mean, std = cv2.meanStdDev(queryImage)
         # mean = [int(val) for val in mean]
         # queryImage[bbox[1]:bbox[3], bbox[0]:bbox[2]] = mean
 
         # Describe a 3D RGB histogram with 8 bins per channel
-        desc = HistogramDescriptor((8, 8, 8))
-        queryFeatures = desc.computeHSV(queryImage)
+        # desc = HistogramDescriptor((8, 8, 8))
+        desc = TextureDescriptors()
+        queryFeatures = desc.compute_histogram_blocks(queryImage, text_box=bbox)
 
         # Perform the search
         searcher = Searcher(index)
         results = searcher.search(queryFeatures)
         predicted_query = []
+        # print("text", text)
 
         # Loop over the top ten results
         for j in range(0, 10):

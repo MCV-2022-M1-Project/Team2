@@ -61,3 +61,28 @@ def get_text_distance(text_1, text_2, distance_metric):
 
     # Return the distance
     return distance
+
+
+def get_k_images(text, index, k=10, distance_metric="Hamming"):
+
+    # Initialize distance
+    distances = {}
+
+    # Loop over the dataset texts
+    for id, dataset_text in index.items():
+
+        # Calculate similarity between the current text and dataset texts
+        if dataset_text != 'empty':
+            dataset_text = dataset_text.replace("(", "").replace("'", " ").replace(")", "")
+            distances[id] = get_text_distance(text.lower(), dataset_text.split(",", 1)[0].strip(), distance_metric)
+
+        else:
+            distances[id] = 100
+
+    # Calculate the minimum distance and get the top k images
+    min_distance = min(distances.values())
+    author_images = [key for key in distances if distances[key] == min_distance]
+    k_predicted_images = (sorted(distances.items(), key=operator.itemgetter(1), reverse=False))[:k]
+
+    # Return the predictions
+    return [predicted_image[0] for predicted_image in k_predicted_images], author_images, distances
