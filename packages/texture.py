@@ -5,28 +5,28 @@ from skimage import feature
 from skimage.feature import hog
 import pywt
 from scipy.fftpack import dct, idct
-
+import math
 
 class TextureDescriptors:
     def compute_hog(self, image):
         # Convert image to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.resize(gray, (400,400), interpolation = cv2.INTER_LANCZOS4)
 
-        # Calculate the hog coefficients and multiply by 256
-        hog_coefficients = hog(gray, orientations=8, pixels_per_cell=(16, 16),
-                               cells_per_block=(1, 1), visualize=False, feature_vector=True)
-        hog_coefficients *= 256
+        hog_coefficients = hog(gray, orientations=9, pixels_per_cell=(8, 8),
+                               cells_per_block=(3, 3), visualize=False, transform_sqrt = True, feature_vector=True)
+        #hog_coefficients *= 256
 
         # Convert the coefficients to a histogram
-        histogram = cv2.calcHist([hog_coefficients.astype(np.uint8)], [0], None, [8], [0, 256])
-        histogram = histogram.astype("float32")
+        #histogram = cv2.calcHist([hog_coefficients.astype(np.uint8)], [0], None, [100], [0, 256])
+        #histogram = histogram.astype("float32")
 
         # Normalize the histogram
-        histogram = cv2.normalize(histogram, histogram, alpha=0, beta=1,
-                                  norm_type=cv2.NORM_MINMAX)
+        #histogram = cv2.normalize(histogram, histogram, alpha=0, beta=1,
+        #                          norm_type=cv2.NORM_MINMAX)
 
         # Return the histogram
-        return histogram
+        return hog_coefficients
 
     def compute_lbp(self, image, numPoints=8, radius=2, eps=1e-7):
         lbps = [feature.local_binary_pattern(image[:, :, i], numPoints, radius, method="uniform")
