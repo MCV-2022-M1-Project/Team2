@@ -8,21 +8,17 @@ from packages import RemoveNoise
 
 
 
-path = "dataset/qsd1_w3/"
+path = "../dataset/qsd1_w3/"
 
-   
+count = 0
+total = 0
 for imagePath in list_images(path):
-    if "jpg" in imagePath:
-        # Extract our unique image ID (i.e. the filename)
-        path = imagePath[imagePath.rfind("_") + 1:]
-
+    if "jpg" in imagePath and not "non_augmented" in imagePath:
         # Load the image
+        print(imagePath)
         image = cv2.imread(imagePath)
-        #check the image for noise
-        check = RemoveNoise(image)
-        
-        if check.checkImage:
-            cv2.imshow("s",check.checkImage())
-
-        cv2.waitKey(300000)
-            
+        rm_v = RemoveNoise(image)
+        if rm_v.noise_accuracy_qsd1_w3(imagePath[-9:-4]):
+            count += 1
+        total += 1 
+print("Accuracy:", count*100/total)

@@ -13,7 +13,7 @@ class TextureDescriptors:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         gray = cv2.resize(gray, (400,400), interpolation = cv2.INTER_LANCZOS4)
 
-        hog_coefficients = hog(gray, orientations=9, pixels_per_cell=(8, 8),
+        hog_coefficients = hog(gray, orientations=9, pixels_per_cell=(32, 32),
                                cells_per_block=(3, 3), visualize=False, transform_sqrt = True, feature_vector=True)
         #hog_coefficients *= 256
 
