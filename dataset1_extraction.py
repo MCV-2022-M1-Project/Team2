@@ -105,7 +105,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
             # Grab the result
             (score, imageName) = results[j]
             # (score_text, imageName_text) = text_results[j]
-            # predicted_query.append(int(imageName.replace(".jpg", "")))
+            predicted_query.append(int(imageName.replace(".jpg", "")))
             print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
             #print("text")
             # print("\t{}. {} : {:.3f}".format(j + 1, imageName_text, score_text))
