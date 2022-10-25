@@ -21,7 +21,10 @@ for imagePath in list_images(path):
         #check gaussian TODO
             
         #check salt and pepper
-        m_filtered = cv2.medianBlur(image, 3)
+        if(image.shape[1] < 600):
+            m_filtered = cv2.medianBlur(image, 3)
+        else:
+            m_filtered = cv2.medianBlur(image, 5)
         noise = cv2.subtract(m_filtered, image)
         #count the noise pixels and check how many pixels there are relative to image size
         n_pix = np.sum(noise > 30)
@@ -31,6 +34,7 @@ for imagePath in list_images(path):
             numpy_horizontal_concat = np.concatenate((image, noise), axis=1)
             cv2.destroyAllWindows()
             cv2.imshow('Numpy Horizontal Concat', numpy_horizontal_concat)
+            cv2.imshow('Filtered', m_filtered)
             
         else:
             cv2.destroyAllWindows()
