@@ -6,14 +6,14 @@ import pickle
 import cv2
 from imutils.paths import list_images
 
-from packages import RemoveText, RemoveBackground, HistogramDescriptor, Searcher, TextureDescriptors
+from packages import RemoveText, RemoveBackground, HistogramDescriptor, Searcher, TextureDescriptors, RemoveNoise, noise_red
 from packages.average_precicion import mapk
 
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--query", default="../dataset/qsd2_w3", help="Path to the image")
 ap.add_argument("-t", "--texture", default="y", help="Do we use texture?")
 ap.add_argument("-a", "--augmented", default="y", help="augmented dataset?")
-ap.add_argument("-a", "--gt", default="y", help="there is a ground truth")
+#ap.add_argument("-a", "--gt", default="y", help="there is a ground truth")
 args = vars(ap.parse_args())
 
 texture = "y" == args["texture"]
@@ -87,7 +87,9 @@ for imagePath in sorted(list_images(args["query"])):
                 #mean, std = cv2.meanStdDev(image1)
                 # image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2]][bbox[1]:bbox[3], bbox[0]:bbox[2]] = 1
                 if texture:
-                    queryFeatures = desc.compute_hog(image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2], :])
+                    n = RemoveNoise(image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2], :])
+
+                    queryFeatures = desc.compute_hog(n.denoise_image())
                 else:
                     queryFeatures = desc.computeHSV(image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2], :])
 
