@@ -1,6 +1,7 @@
 # Evaluate the predictions
 import argparse
 import collections
+import os
 import pickle
 import cv2
 import numpy as np
@@ -45,15 +46,16 @@ for imagePath in list_images(args["index"]):
 # Initialize a Dictionary to store texts
 index_text = {}
 
+all_files = sorted(os.listdir(args["index"]))
 # Use list_images to grab the image paths and loop over them
-for imagePath in list_images(args["index"]):
+for imagePath in all_files:
     if "txt" in imagePath:
         # Extract our unique image ID (i.e. the filename)
         path = imagePath[imagePath.rfind("_") + 1:]
 
         # Open the text file and read contents
-        file = open(imagePath, "r")
-        line = file.readline()
+        file = open(args["index"]+'/'+imagePath, "r")
+        line = file.readline().decode('latin-1')
         if line.strip():
             text = line.lower().replace("(", "").replace("'", " ").replace(")", "")
         else:
@@ -64,7 +66,7 @@ for imagePath in list_images(args["index"]):
 
 # Sort the dictionary according to the keys
 index = collections.OrderedDict(sorted(index.items()))
-index_text = collections.OrderedDict(sorted(index_text.items()))
+index_text = index_text.items()
 text_query = []
 predicted = []
 Results = []
@@ -96,7 +98,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
         # Perform the search
         searcher = Searcher(index)
         results = searcher.search(queryFeatures)
-        # text_results = get_k_images(text=text, index=index_text)
+        text_results = get_k_images(text=text, index=index_text)
         predicted_query = []
         # print("text", text)
 
@@ -104,11 +106,11 @@ for imagePath1 in sorted(list_images(args["query1"])):
         for j in range(0, 10):
             # Grab the result
             (score, imageName) = results[j]
-            # (score_text, imageName_text) = text_results[j]
+            (score_text, imageName_text) = text_results[j]
             predicted_query.append(int(imageName.replace(".jpg", "")))
             print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
-            #print("text")
-            # print("\t{}. {} : {:.3f}".format(j + 1, imageName_text, score_text))
+            # print("text")
+            print("\tText: {}. {} : {:.3f}".format(j + 1, imageName_text, score_text))
 
         # Append the final predicted list
         predicted.append(predicted_query)
