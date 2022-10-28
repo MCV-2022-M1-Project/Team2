@@ -39,10 +39,10 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
 ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w3", help="Path to the query image")
 #ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
-ap.add_argument("-a", "--augmented", default="n", help="augmented dataset / with noise?")
+ap.add_argument("-a", "--augmented", default="y", help="augmented dataset / with noise?")
 ap.add_argument("-c", "--color", default="y", help="Do we use color descriptors?")
-ap.add_argument("-t", "--texture", default="n", help="Do we use texture descriptors?")
-ap.add_argument("-txt", "--text", default="n", help="Do we use text descriptors?")
+ap.add_argument("-t", "--texture", default="y", help="Do we use texture descriptors?")
+ap.add_argument("-txt", "--text", default="y", help="Do we use text descriptors?")
 
 args = vars(ap.parse_args())
 
@@ -51,7 +51,7 @@ color = "y" == args["color"]
 texture = "y" == args["texture"]
 text = "y" == args["text"]
 
-
+"""
 # Initialize a Dictionary to store our images and features
 index_color = {}
 index_texture = {}
@@ -126,12 +126,28 @@ for imagePath1 in sorted(list_images(args["query1"])):
                 predicted_color.append(get_k_searcher(index_color, queryFeatures_c))
             if texture:
                 desc_t = TextureDescriptors()
-                queryFeatures_t = desc_t.compute_hog(queryImage_rn)
+                queryFeatures_t = desc_t.compute_hog(queryImage)
                 predicted_texture.append(get_k_searcher(index_texture, queryFeatures_t))
             if text:
                 td = TextDescriptors()
                 predicted_text.append(td.get_k_images(queryImage_rn, index_text)[0])
 
+
+with open("output_color" + ".pkl", "wb") as fp:
+    pickle.dump(predicted_color, fp)
+
+with open("output_texture" + ".pkl", "wb") as fp:
+    pickle.dump(predicted_texture, fp)
+
+with open("output_text" + ".pkl", "wb") as fp:
+    pickle.dump(predicted_text, fp)
+"""
+file = open("output_color.pkl", 'rb')
+predicted_color = pickle.load(file)
+file = open("output_texture.pkl", 'rb')
+predicted_texture = pickle.load(file)
+file = open("output_text.pkl", 'rb')
+predicted_text = pickle.load(file)
 
 # Evaluate the map accuracy
 if color:
@@ -149,3 +165,33 @@ if text:
     print("map@ {}: {}".format(1, evaluate(predicted_text, args["query1"] + "/gt_corresps.pkl", k=1)))
     print("map@ {}: {}".format(5, evaluate(predicted_text, args["query1"] + "/gt_corresps.pkl", k=5)))
 
+def calculate_one_descriptor(voting, predicted, prob):
+
+    for i, l in enumerate(predicted):
+        v = voting[i]
+        for j, p in enumerate(l):
+            
+            if not p in v:
+                v[p] = prob * (len(predicted) - j)
+            else:
+                v[p] =  v[p] + prob * (len(predicted) - j)
+
+def calculate_soft_voting(p_color, p_texture, p_text):
+
+    voting = []
+    for it in range(len(p_color)):
+        voting.append({})
+    calculate_one_descriptor(voting, p_color, 0.8)
+    calculate_one_descriptor(voting, p_texture, 0.733)
+    calculate_one_descriptor(voting, p_text, 0.266)
+
+    voted = [sorted(v.items(), key=lambda item: item[1], reverse = True) for v in voting]
+
+    return [[p[0] for p in predictions]for predictions in voted]
+
+
+predicted_all = calculate_soft_voting(predicted_color, predicted_texture, predicted_text)
+
+print("Prediction of a combination of all:")
+print("map@ {}: {}".format(1, evaluate(predicted_all, args["query1"] + "/gt_corresps.pkl", k=1)))
+print("map@ {}: {}".format(5, evaluate(predicted_all, args["query1"] + "/gt_corresps.pkl", k=5)))
