@@ -6,8 +6,25 @@ import pickle
 import cv2
 import numpy as np
 from imutils.paths import list_images
-from packages import HistogramDescriptor, RemoveText, Searcher, TextureDescriptors, read_text, get_text_distance, get_k_images
+from packages import HistogramDescriptor, Searcher, TextureDescriptors, TextDescriptors, RemoveNoise
 from packages.average_precicion import mapk
+
+def get_k_searcher(index, queryFeatures, k = 10):
+    # Perform the search
+    searcher = Searcher(index)
+    results = searcher.search(queryFeatures)
+
+    predicted_query = []
+    # print("text", text)
+
+    # Loop over the top ten results
+    for j in range(0, k):
+        # Grab the result
+        (score, imageName) = results[j]
+        predicted_query.append(int(imageName.replace(".jpg", "")))
+        print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
+
+    return predicted_query
 
 
 def evaluate(predicted, ground_truth, k):
@@ -21,107 +38,114 @@ def evaluate(predicted, ground_truth, k):
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
 ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w3", help="Path to the query image")
-ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
+#ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
+ap.add_argument("-a", "--augmented", default="n", help="augmented dataset / with noise?")
+ap.add_argument("-c", "--color", default="y", help="Do we use color descriptors?")
+ap.add_argument("-t", "--texture", default="n", help="Do we use texture descriptors?")
+ap.add_argument("-txt", "--text", default="n", help="Do we use text descriptors?")
+
 args = vars(ap.parse_args())
 
+augmented = "y" == args["augmented"]
+color = "y" == args["color"]
+texture = "y" == args["texture"]
+text = "y" == args["text"]
+
+
 # Initialize a Dictionary to store our images and features
-index = {}
+index_color = {}
+index_texture = {}
+index_text = {}
 
 # Initialize image descriptor
 descriptor = HistogramDescriptor((8, 8, 8))
 descriptor1 = TextureDescriptors()
 print("Indexing images")
 
-# Use list_images to grab the image paths and loop over them
-for imagePath in list_images(args["index"]):
-    if "jpg" in imagePath:
-        # Extract our unique image ID (i.e. the filename)
-        path = imagePath[imagePath.rfind("_") + 1:]
+if texture or color:
+    # Use list_images to grab the image paths and loop over them
+    for imagePath in list_images(args["index"]):
+        if "jpg" in imagePath:
+            # Extract our unique image ID (i.e. the filename)
+            path = imagePath[imagePath.rfind("_") + 1:]
 
-        # Load the image, compute histogram and update the index
-        image = cv2.imread(imagePath)
-        features = np.concatenate([descriptor.computeHSV(image), descriptor1.compute_hog(image)])
-        index[path] = features
+            # Load the image, compute histogram and update the index
+            image = cv2.imread(imagePath)
+            if color:
+                index_color[path] = descriptor.computeHSV(image)
+            if texture:
+                index_texture[path] = descriptor1.compute_hog(image)
 
-# Initialize a Dictionary to store texts
-index_text = {}
+if text:
+    # Initialize a Dictionary to store texts
+    all_files = sorted(os.listdir(args["index"]))
+    # Use list_images to grab the image paths and loop over them
+    for imagePath in all_files:
+        if "txt" in imagePath:
+            # Extract our unique image ID (i.e. the filename)
+            path = imagePath[imagePath.rfind("_") + 1:]
 
-all_files = sorted(os.listdir(args["index"]))
-# Use list_images to grab the image paths and loop over them
-for imagePath in all_files:
-    if "txt" in imagePath:
-        # Extract our unique image ID (i.e. the filename)
-        path = imagePath[imagePath.rfind("_") + 1:]
+            # Open the text file and read contents
+            file = open(args["index"]+'/'+imagePath, "r")
+            line = file.readline()
+            if line.strip():
+                text = line.lower().replace("(", "").replace("'", " ").replace(")", "")
+            else:
+                text = 'empty'
 
-        # Open the text file and read contents
-        file = open(args["index"]+'/'+imagePath, "r")
-        line = file.readline().decode('latin-1')
-        if line.strip():
-            text = line.lower().replace("(", "").replace("'", " ").replace(")", "")
-        else:
-            text = 'empty'
-
-        # Add the text to list of dictionaries
-        index_text[path] = text
+            # Add the text to list of dictionaries
+            index_text[path] = text
 
 # Sort the dictionary according to the keys
-index = collections.OrderedDict(sorted(index.items()))
-index_text = index_text.items()
+index_color = collections.OrderedDict(sorted(index_color.items()))
+index_texture = collections.OrderedDict(sorted(index_texture.items()))
+index_text = index_text
+
+
 text_query = []
-predicted = []
+predicted_color = []
+predicted_texture = []
+predicted_text = []
 Results = []
 bounding_boxes = []
 
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
     if "jpg" in imagePath1:
-        queryImage = cv2.imread(imagePath1)
-        queryImage1 = queryImage.copy()
-        print("query: {}".format(imagePath1))
+        if augmented and not "non_augmented" in imagePath1 or not augmented and "non_augmented" in imagePath1:
+            queryImage = cv2.imread(imagePath1)
+            #queryImage1 = queryImage.copy()
+            print("query: {}".format(imagePath1))
 
-        text_id = RemoveText(queryImage)
-        bbox = text_id.extract_text()
-        text = read_text(queryImage, bbox)
-        text_query.append(text)
-        image = cv2.rectangle(queryImage1, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 0, 255), 4)
-        # cv2.imshow("image", image)
-        # cv2.waitKey(0)
-        # mean, std = cv2.meanStdDev(queryImage)
-        # mean = [int(val) for val in mean]
-        # queryImage[bbox[1]:bbox[3], bbox[0]:bbox[2]] = mean
+            rn = RemoveNoise(queryImage)
+            queryImage_rn = rn.denoise_image()
+            # Describe a 3D RGB histogram with 8 bins per channel
+            if color:
+                desc_c = HistogramDescriptor((8, 8, 8))
+                queryFeatures_c = desc_c.computeHSV(queryImage) # color works better without removing noise
+                predicted_color.append(get_k_searcher(index_color, queryFeatures_c))
+            if texture:
+                desc_t = TextureDescriptors()
+                queryFeatures_t = desc_t.compute_hog(queryImage_rn)
+                predicted_texture.append(get_k_searcher(index_texture, queryFeatures_t))
+            if text:
+                td = TextDescriptors()
+                predicted_text.append(td.get_k_images(queryImage_rn, index_text)[0])
 
-        # Describe a 3D RGB histogram with 8 bins per channel
-        desc = HistogramDescriptor((8, 8, 8))
-        desc1 = TextureDescriptors()
-        queryFeatures = np.concatenate([desc.computeHSV(image), desc1.compute_hog(image)])
-
-        # Perform the search
-        searcher = Searcher(index)
-        results = searcher.search(queryFeatures)
-        text_results = get_k_images(text=text, index=index_text)
-        predicted_query = []
-        # print("text", text)
-
-        # Loop over the top ten results
-        for j in range(0, 10):
-            # Grab the result
-            (score, imageName) = results[j]
-            (score_text, imageName_text) = text_results[j]
-            predicted_query.append(int(imageName.replace(".jpg", "")))
-            print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
-            # print("text")
-            print("\tText: {}. {} : {:.3f}".format(j + 1, imageName_text, score_text))
-
-        # Append the final predicted list
-        predicted.append(predicted_query)
-        # bounding_boxes.append(bbox)
 
 # Evaluate the map accuracy
-print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
-print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
+if color:
+    print("Prediction of color:")
+    print("map@ {}: {}".format(1, evaluate(predicted_color, args["query1"] + "/gt_corresps.pkl", k=1)))
+    print("map@ {}: {}".format(5, evaluate(predicted_color, args["query1"] + "/gt_corresps.pkl", k=5)))
 
-# Save the results
-with open("output_2" + ".pkl", "wb") as fp:
-    pickle.dump(predicted, fp)
-with open("bounding_boxes_2" + ".pkl", "wb") as fp:
-    pickle.dump(bounding_boxes, fp)
+if texture:
+    print("Prediction of texture:")
+    print("map@ {}: {}".format(1, evaluate(predicted_texture, args["query1"] + "/gt_corresps.pkl", k=1)))
+    print("map@ {}: {}".format(5, evaluate(predicted_texture, args["query1"] + "/gt_corresps.pkl", k=5)))
+
+if text:
+    print("Prediction of text:")
+    print("map@ {}: {}".format(1, evaluate(predicted_text, args["query1"] + "/gt_corresps.pkl", k=1)))
+    print("map@ {}: {}".format(5, evaluate(predicted_text, args["query1"] + "/gt_corresps.pkl", k=5)))
+
