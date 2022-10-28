@@ -40,8 +40,8 @@ ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the im
 ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w3", help="Path to the query image")
 #ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
 ap.add_argument("-a", "--augmented", default="y", help="augmented dataset / with noise?")
-ap.add_argument("-c", "--color", default="y", help="Do we use color descriptors?")
-ap.add_argument("-t", "--texture", default="y", help="Do we use texture descriptors?")
+ap.add_argument("-c", "--color", default="n", help="Do we use color descriptors?")
+ap.add_argument("-t", "--texture", default="n", help="Do we use texture descriptors?")
 ap.add_argument("-txt", "--text", default="y", help="Do we use text descriptors?")
 
 args = vars(ap.parse_args())
@@ -51,7 +51,7 @@ color = "y" == args["color"]
 texture = "y" == args["texture"]
 text = "y" == args["text"]
 
-"""
+
 # Initialize a Dictionary to store our images and features
 index_color = {}
 index_texture = {}
@@ -132,7 +132,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
                 td = TextDescriptors()
                 predicted_text.append(td.get_k_images(queryImage_rn, index_text)[0])
 
-
+"""
 with open("output_color" + ".pkl", "wb") as fp:
     pickle.dump(predicted_color, fp)
 
@@ -179,6 +179,7 @@ def calculate_one_descriptor(voting, predicted, prob):
 def calculate_soft_voting(p_color, p_texture, p_text):
 
     voting = []
+    longi = max(len(p_color), len(p_texture), len(p_text))
     for it in range(len(p_color)):
         voting.append({})
     calculate_one_descriptor(voting, p_color, 0.8)
