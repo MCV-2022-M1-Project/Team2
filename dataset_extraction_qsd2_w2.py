@@ -29,9 +29,14 @@ def get_k_searcher(index, queryFeatures, k=10):
     return predicted_query
 
 
+def flatten(l):
+    return [[item] for sublist in l for item in sublist]
+
+
 def evaluate(predicted, ground_truth, k):
     file = open(ground_truth, 'rb')
     actual = pickle.load(file)
+    actual = flatten(actual)
     result = mapk(actual=actual, predicted=predicted, k=k)
     return result
 
@@ -39,7 +44,7 @@ def evaluate(predicted, ground_truth, k):
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
-ap.add_argument("-q1", "--query1", default="../dataset/qsd2_w3", help="Path to the query image")
+ap.add_argument("-q1", "--query1", default="../dataset/qsd2_w2", help="Path to the query image")
 # ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
 ap.add_argument("-a", "--augmented", default="y", help="augmented dataset / with noise?")
 ap.add_argument("-c", "--color", default="y", help="Do we use color descriptors?")
@@ -52,7 +57,7 @@ augmented = "y" == args["augmented"]
 color = "y" == args["color"]
 texture = "y" == args["texture"]
 text = "y" == args["text"]
-
+"""
 # Initialize a Dictionary to store our images and features
 index_color = {}
 index_texture = {}
@@ -159,13 +164,13 @@ with open("output_texture3" + ".pkl", "wb") as fp:
 
 with open("output_text3" + ".pkl", "wb") as fp:
     pickle.dump(predicted_text, fp)
-
-"""file = open("output_color.pkl", 'rb')
+"""
+file = open("output_color3.pkl", 'rb')
 predicted_color = pickle.load(file)
-file = open("output_texture.pkl", 'rb')
+file = open("output_texture3.pkl", 'rb')
 predicted_texture = pickle.load(file)
-file = open("output_text.pkl", 'rb')
-predicted_text = pickle.load(file)"""
+file = open("output_text3.pkl", 'rb')
+predicted_text = pickle.load(file)
 
 # Evaluate the map accuracy
 if color:
