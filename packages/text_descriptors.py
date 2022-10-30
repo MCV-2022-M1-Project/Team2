@@ -98,4 +98,4 @@ class TextDescriptors:
         k_predicted_images = (sorted(distances.items(), key=operator.itemgetter(1), reverse=False))[:k]
 
         # Return the predictions
-        return [int(predicted_image[0][:-4]) for predicted_image in k_predicted_images], author_images, distances
+        return [int(predicted_image[0][:-4]) for predicted_image in k_predicted_images], author_images, distances, text
