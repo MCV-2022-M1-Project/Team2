@@ -6,6 +6,8 @@ import operator
 import jellyfish
 import argparse
 from packages import RemoveText, RemoveBackground
+import os
+import textdistance
 
 # Construct argument parser and parse arguments
 ap = argparse.ArgumentParser()
@@ -16,6 +18,8 @@ args = vars(ap.parse_args())
 
 # Define function to ocr text
 def read_text(queryImage, bbox):
+    if os.name == "nt": # only run it in windows
+        pytesseract.pytesseract.tesseract_cmd = "tesseract.exe"
     # Extract the coordinates
     x = bbox[0]
     y = bbox[1]
@@ -26,7 +30,7 @@ def read_text(queryImage, bbox):
         roi = queryImage[y:h, x:w]
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
         _, gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        text = pytesseract.image_to_string(gray)
+        text = pytesseract.image_to_string(gray, config='--psm 6')
 
     else:
         text = "not found"
@@ -45,15 +49,15 @@ def read_text(queryImage, bbox):
 def get_text_distance(text_1, text_2, distance_metric):
     # For metric Levensthein
     if distance_metric == "Levensthein":
-        distance = jellyfish.levenshtein_distance(text_1, text_2)
+        distance = textdistance.levenshtein(text_1, text_2)
 
     # For metric Hamming
     elif distance_metric == "Hamming":
-        distance = jellyfish.hamming_distance(text_1, text_2)
+        distance = textdistance.hamming(text_1, text_2)
 
     # For metric Hamming
     elif distance_metric == "Hamming":
-        distance = jellyfish.damerau_levenshtein_distance(text_1, text_2)
+        distance = textdistance.damerau_levenshtein(text_1, text_2)
 
     # Print error if metric is not valid
     else:
