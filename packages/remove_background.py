@@ -166,7 +166,13 @@ class RemoveBackground:
         # Get 2 biggest bb
         num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(th_open)
         stats = sorted(stats[1:], key = lambda t: t[4], reverse=True)
-        return (th_open, stats[0:2])
+        r,c = image_gray.shape
+
+        if stats[1][4] > r*c/100:
+            stats = stats[0:2]
+        else:
+            stats = stats[0:1]
+        return (th_open, stats)
 
     @staticmethod
     def BFS(thresh):
