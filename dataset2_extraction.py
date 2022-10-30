@@ -119,6 +119,7 @@ for imagePath in sorted(list_images(args["query"])):
             pq_text = []
             bgb = []
             txtr = []
+            
             for i in range(0, len(stats)):
                 bb = stats[i]
                 image1 = image.copy()
@@ -174,11 +175,11 @@ with open("output_boundingbox3a" + ".pkl", "wb") as fp:
 
 
 file = open("output_color3a.pkl", 'rb')
-predicted_color = []
+predicted_color = pickle.load(file)
 file = open("output_texture3a.pkl", 'rb')
 predicted_texture =  pickle.load(file)
 file = open("output_text3a.pkl", 'rb')
-predicted_text = []
+predicted_text = pickle.load(file)
 
 def flatten(l):
     return [[item] for sublist in l for item in sublist]
@@ -258,18 +259,19 @@ def calculate_soft_voting(p_color, p_texture, p_text):
             v.append({})
         voting.append(v)
     calculate_one_descriptor(voting, p_color, 0.8)
-    #calculate_one_descriptor(voting, p_texture, 0.733)
-    #calculate_one_descriptor(voting, p_text, 0.266)
+    calculate_one_descriptor(voting, p_texture, 0.733)
+    calculate_one_descriptor(voting, p_text, 0.266)
 
     voted = [[sorted(v.items(), key=lambda item: item[1], reverse = True) for v in l_v]for l_v in voting]
 
-    return [[[p[0] for p in predictions]for predictions in photo_list] for photo_list in voted]
+    return [[[p[0] for i, p in enumerate(predictions) if i < 10]for predictions in photo_list] for photo_list in voted]
 
 
 predicted_all = calculate_soft_voting(predicted_color, predicted_texture, predicted_text)
 
-file = open("output_all3a.pkl", 'rb')
-predicted_text = pickle.load(file)
+with open("output_comb" + ".pkl", "wb") as fp:
+    pickle.dump(predicted_all, fp)
+
 
 """
 print("Prediction of a combination of all:")
