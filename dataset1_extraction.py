@@ -39,9 +39,9 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
 ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w3", help="Path to the query image")
 #ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
-ap.add_argument("-a", "--augmented", default="y", help="augmented dataset / with noise?")
-ap.add_argument("-c", "--color", default="n", help="Do we use color descriptors?")
-ap.add_argument("-t", "--texture", default="n", help="Do we use texture descriptors?")
+ap.add_argument("-a", "--augmented", default="n", help="augmented dataset / with noise?")
+ap.add_argument("-c", "--color", default="y", help="Do we use color descriptors?")
+ap.add_argument("-t", "--texture", default="y", help="Do we use texture descriptors?")
 ap.add_argument("-txt", "--text", default="y", help="Do we use text descriptors?")
 
 args = vars(ap.parse_args())
@@ -132,7 +132,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
                 td = TextDescriptors()
                 predicted_text.append(td.get_k_images(queryImage_rn, index_text)[0])
 
-"""
+
 with open("output_color" + ".pkl", "wb") as fp:
     pickle.dump(predicted_color, fp)
 
@@ -141,11 +141,11 @@ with open("output_texture" + ".pkl", "wb") as fp:
 
 with open("output_text" + ".pkl", "wb") as fp:
     pickle.dump(predicted_text, fp)
-"""
+
 file = open("output_color.pkl", 'rb')
 predicted_color = pickle.load(file)
 file = open("output_texture.pkl", 'rb')
-predicted_texture = pickle.load(file)
+predicted_texture = []
 file = open("output_text.pkl", 'rb')
 predicted_text = pickle.load(file)
 
@@ -180,7 +180,7 @@ def calculate_soft_voting(p_color, p_texture, p_text):
 
     voting = []
     longi = max(len(p_color), len(p_texture), len(p_text))
-    for it in range(len(p_color)):
+    for it in range(longi):
         voting.append({})
     calculate_one_descriptor(voting, p_color, 0.8)
     calculate_one_descriptor(voting, p_texture, 0.733)
