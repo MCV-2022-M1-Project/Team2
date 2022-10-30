@@ -168,7 +168,7 @@ class RemoveBackground:
         stats = sorted(stats[1:], key = lambda t: t[4], reverse=True)
         r,c = image_gray.shape
 
-        if stats[1][4] > r*c/100:
+        if len(stats) > 1 and stats[1][4] > r*c/100:
             stats = stats[0:2]
         else:
             stats = stats[0:1]
