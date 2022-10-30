@@ -57,7 +57,7 @@ augmented = "y" == args["augmented"]
 color = "y" == args["color"]
 texture = "y" == args["texture"]
 text = "y" == args["text"]
-"""
+
 # Initialize a Dictionary to store our images and features
 index_color = {}
 index_texture = {}
@@ -164,7 +164,7 @@ with open("output_texture3" + ".pkl", "wb") as fp:
 
 with open("output_text3" + ".pkl", "wb") as fp:
     pickle.dump(predicted_text, fp)
-"""
+
 file = open("output_color3.pkl", 'rb')
 predicted_color = pickle.load(file)
 file = open("output_texture3.pkl", 'rb')
