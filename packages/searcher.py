@@ -14,7 +14,7 @@ class Searcher:
         # loop over the index
         for (k, features) in self.index.items():
             # Compute chi squared distance
-            d = self.chi2_distance(features, queryFeatures)
+            d = self.chi2_distance(features[1], queryFeatures)
 
             # Store distances
             results[k] = d
