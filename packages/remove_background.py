@@ -8,58 +8,35 @@ import imutils
 class RemoveBackground:
     @staticmethod
     def compute_removal(data):
-        # Define thresholds
-        threshold = 65
-        threshold_2 = 40
-
         # Grab the shape of the image
         row, col, _ = data.shape
 
         # Define the thresholds
         threshold_rec_col = round(col / 1.5)
         threshold_rec_row = round(row / 1.5)
-        threshold_erase_col = round(col / 3)
-        threshold_erase_row = round(row / 3)
+        edge_r = round(col / 200)
+        edge_c = round(row / 200)
 
-        # Get average color of background taking a sample from each side of the picture
-        valor = data[0, round(col / 2), :].astype(int)
-        valor = valor + data[row - 1, round(col / 2), :].astype(int)
-        valor = valor + data[round(row / 2), 0, :].astype(int)
-        valor = valor + data[round(row / 2), col - 1, :].astype(int)
-        valor = valor / 4
-        col_shadow = valor - 120
+        image_gray = cv2.cvtColor(data, cv2.COLOR_BGR2GRAY)
 
-        # Every pixel similar to the background color gets to False
-        mask = np.logical_not((data[:, :, 0] > valor[0] - threshold) & (data[:, :, 1] > valor[1] - threshold) & (
-                    data[:, :, 2] > valor[2] - threshold))
+        # Blur the image
+        blurred = cv2.medianBlur(image_gray, 7)
 
+        # Use dynamic thresholding
+        thresh = cv2.Canny(blurred, 10, 100)
         # Every pixel similar to the background color with shadow gets to False
-        mask = np.logical_and(mask, np.logical_not(
-            (data[:, :, 0] > col_shadow[0] - threshold_2 + 10) & (data[:, :, 0] < col_shadow[0] + threshold_2) & (
-                        data[:, :, 1] > col_shadow[1] - threshold_2 + 10) & (
-                        data[:, :, 1] < col_shadow[1] + threshold_2) & (
-                        data[:, :, 2] > col_shadow[2] - threshold_2 + 10) & (
-                        data[:, :, 2] < col_shadow[2] + threshold_2)))
+        mask = (thresh > 0).astype("uint8")
 
+        mask[0:edge_r,:] = 0
+        mask[-edge_r:,:] = 0
+        mask[:,0:edge_c] = 0
+        mask[:,-edge_c:] = 0
+        #cv2.imwrite("bbb.png",mask*255)
         # mask = np.logical_not((data[:,:,0] > valor[0] - threshold) & (data[:,:,0] < valor[0]  + threshold) & (data[
         # :,:,1] > valor[1]  - threshold) & (data[:,:,1] < valor[1]  + threshold) & (data[:,:,2] > valor[2]  -
         # threshold) & (data[:,:,2] < valor[2] + threshold))
 
-        # Reconstruct painting by rows
-        for i in range(row):
-            first = 0
-            final = col
-            found_first = False
 
-            for j in range(col):
-                if mask[i, j] > 0 and not found_first:
-                    found_first = True
-                    first = j
-                if mask[i, j] > 0 and j - final <= threshold_rec_col:
-                    final = j
-            if found_first:
-                mask[i, first:final] = 1
-        
         # Reconstruct painting by columns
         for j in range(col):
             first = 0
@@ -75,60 +52,24 @@ class RemoveBackground:
             if found_first:
                 mask[first:final, j] = 1
         
-        ######
-        # Erase small objects by columns
-        for j in range(col):
-            first = 0
-            final = 0
-            conti = False
+        #cv2.imwrite("bbb_recup.png",mask*255)
+        bfs_threh = RemoveBackground.BFS(mask)
+        #cv2.imwrite("bbb_bfs.png", bfs_threh*255)
 
-            for i in range(row):
-                if mask[i, j] > 0 and not conti:
-                    conti = True
-                    first = i
-                elif conti and (i == row - 1 or mask[i + 1, j] <= 0):
-                    final = i + 1
-                    conti = False
-                    if final - first <= threshold_erase_row:
-                        mask[first:final, j] = 0
-
-        # Erase small objects by rows
-        for i in range(row):
-            first = 0
-            final = 0
-            conti = False
-
-            for j in range(col):
-                if mask[i, j] > 0 and not conti:
-                    conti = True
-                    first = j
-                elif conti and (j == col - 1 or mask[i, j + 1] <= 0):
-                    final = j + 1
-                    conti = False
-                    if final - first <= threshold_erase_col:
-                        mask[i, first:final] = 0
-
-        # Erase again small objects by columns
-        for j in range(col):
-            first = 0
-            final = 0
-            conti = False
-
-            for i in range(row):
-                if mask[i, j] > 0 and not conti:
-                    conti = True
-                    first = i
-                elif conti and (i == row - 1 or mask[i + 1, j] <= 0):
-                    final = i + 1
-                    conti = False
-                    if final - first <= threshold_erase_row:
-                        mask[first:final, j] = 0
-
+        kernel = np.ones((int(row/40), int(col/40)), np.uint8)
+        th_open = cv2.morphologyEx(bfs_threh, cv2.MORPH_OPEN, kernel)
+        th_open = cv2.morphologyEx(th_open, cv2.MORPH_CLOSE, kernel)
+        #cv2.imwrite("bbb_final.png",th_open*255)
         # Return the mask
         mask = mask.astype("uint8")
-        num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(mask)
+        num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(th_open)
+        stats = sorted(stats[1:], key = lambda t: t[4], reverse=True)
 
-        return (mask.astype("uint8"), stats)
+        if len(stats) > 1 and stats[1][4] > row*col/100:
+            stats = stats[0:2]
+        else:
+            stats = stats[0:1]
+        return (th_open, stats)
 
     @staticmethod
     def compute_removal_2(image):
@@ -145,18 +86,18 @@ class RemoveBackground:
 
         thresh = cv2.Canny(blurred, 10, 100)
         #thresh = imutils.auto_canny(blurred, 0.3)
-        #cv2.imwrite("aaaa.png", thresh)
+        cv2.imwrite("aaaa.png", thresh)
         r,c = image_gray.shape
 
         # Dilate the borders
-        #kernel = np.ones((5, 5), np.uint8)
+        kernel = np.ones((5, 5), np.uint8)
         #thresh_dilated = cv2.dilate(thresh, kernel, iterations=1)
-        #kernel_1 = np.ones((int(r/5), int(8)), np.uint8)
-        #kernel_2 = np.ones((int(8), int(c/5)), np.uint8)
-        kernel = np.ones((int(r/50), int(c/50)), np.uint8)
-        th_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-        #th_closed = cv2.morphologyEx(th_closed, cv2.MORPH_CLOSE, kernel)
-        #cv2.imwrite("aaaaclosed.png", th_closed)
+        kernel_1 = np.ones((int(r/25), int(8)), np.uint8)
+        kernel_2 = np.ones((int(8), int(c/25)), np.uint8)
+        kernel = np.ones((int(r/20), int(c/20)), np.uint8)
+        th_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_1)
+        th_closed = cv2.morphologyEx(th_closed, cv2.MORPH_CLOSE, kernel_2)
+        cv2.imwrite("aaaaclosed.png", th_closed)
         # Get all the background component
         bfs_threh = RemoveBackground.BFS(th_closed)
         #cv2.imwrite("aaaabfs.png", bfs_threh)
