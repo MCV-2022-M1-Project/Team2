@@ -2,24 +2,24 @@ import cv2
 import numpy as np
 from imutils.paths import list_images
 from packages import bb_intersection_over_union
-from packages import RemoveText, RemoveBackground, RemoveNoise
+from packages import RemoveText, RemoveBackground, RemoveNoise, detect_text_box
 import pickle
 import math
 import os
 from skimage.restoration import (denoise_wavelet, estimate_sigma)
 
+
 def oneImagePaintingW2(data, IOU):
     i = 0
     for (imagePath) in (sorted(list_images("../dataset/qsd1_w2"))):
         if "jpg" in imagePath:
-            bb = []
-            bb.append(data[i][0][0][0])
-            bb.append(data[i][0][0][1])
-            bb.append(data[i][0][2][0])
-            bb.append(data[i][0][2][1])
+            bb = [data[i][0][0][0], data[i][0][0][1], data[i][0][2][0], data[i][0][2][1]]
             image = cv2.imread(imagePath)
-            text_id = RemoveText(image)
-            bbox = text_id.extract_text()
+            """text_id = RemoveText(image)
+            bbox = text_id.extract_text()"""
+            bbox = detect_text_box(image)
+            if bbox is None:
+                bbox = [0, 0, 0, 0]
             iou = bb_intersection_over_union(bbox, bb)
             IOU.append(iou)
             print("IOU", iou)
@@ -29,42 +29,39 @@ def oneImagePaintingW2(data, IOU):
             #  cv2.waitKey(0)
 
 
-def twoImagePaintingW2():
-    folder = "./masks_qst2_w2/"
-    # Create masks_qsd2_w2 if it does not exist
-    if not os.path.exists(folder):
-        os.makedirs(folder)
+def twoImagePaintingW2(data, IOU):
     i = 0
     bbs = []
-    for (imagePath) in (sorted(list_images("../dataset/qst2_w2"))):
+    for (imagePath) in (sorted(list_images("../dataset/qsd1_w4"))):
         if "jpg" in imagePath:
             print("#####")
             image = cv2.imread(imagePath)
 
             th_open, stats = RemoveBackground.compute_removal_2(image)
-            cv2.imwrite(folder+imagePath[-9:-3]+".png",th_open)
+            # cv2.imwrite(folder+imagePath[-9:-3]+".png", th_open)
             bb_gts = []
-            """
+
             for k in range(len(data[i])):
-                bb_gt_n = []
-                bb_gt_n.append(data[i][k][0])
-                bb_gt_n.append(data[i][k][1])
-                bb_gt_n.append(data[i][k][2])
-                bb_gt_n.append(data[i][k][3])
+                bb_gt_n = [data[i][k][0], data[i][k][1], data[i][k][2], data[i][k][3]]
                 bb_gts.append(bb_gt_n)
-           
+
             bb_aux = []
-            
-            for k in range(0,len(stats)):
+
+            for k in range(0, len(stats)):
 
                 bb = stats[k]
-                
-                text_id = RemoveText(image[bb[1]:bb[1]+bb[4],bb[0]:bb[0]+bb[2],:])
-                bbox = text_id.extract_text()
-                
-                bb_ph_absolute = [bbox[0]+bb[0], bbox[1]+bb[1], bbox[2]+bb[0], bbox[3]+bb[1]]
+
+                """text_id = RemoveText(image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2], :])
+                bbox = text_id.extract_text()"""
+                rn = RemoveNoise(image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2], :])
+                queryImage_rn = rn.denoise_image()
+                bbox = detect_text_box(queryImage_rn)
+                if bbox is None:
+                    bbox = [0, 0, 0, 0]
+
+                bb_ph_absolute = [bbox[0] + bb[0], bbox[1] + bb[1], bbox[2] + bb[0], bbox[3] + bb[1]]
                 bb_aux.append(bb_ph_absolute)
-                
+
                 if len(bb_gts) > 1:
                     bb_gt = bb_near(bb_gts[0], bb_gts[1], bb_ph_absolute)
                 else:
@@ -77,16 +74,14 @@ def twoImagePaintingW2():
                 print("IOU", iou)
                 print("&&&&")
 
-                image = cv2.rectangle(image, (bb_ph_absolute[0], bb_ph_absolute[1]), (bb_ph_absolute[2], bb_ph_absolute[3]), (0, 0, 255), 4)
-                
-            #cv2.imwrite('test/'+imagePath[-9:], image)
+                image = cv2.rectangle(image, (bb_ph_absolute[0], bb_ph_absolute[1]),
+                                      (bb_ph_absolute[2], bb_ph_absolute[3]), (0, 0, 255), 4)
+
+            # cv2.imwrite('test/'+imagePath[-9:], image)
             bbs.append(bb_aux)
 
             i = i + 1
-         """
-    output = open('output_t2w2.pkl', 'wb')
-    pickle.dump(bbs, output)
-    output.close()
+
 
 def oneImagePaintingW3(data, IOU):
     i = 0
@@ -107,9 +102,7 @@ def oneImagePaintingW3(data, IOU):
             print("IOU", iou)
             i = i + 1
             image = cv2.rectangle(image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), (0, 0, 255), 4)
-            cv2.imwrite("./bb/"+imagePath[-9:], image)
-
-
+            cv2.imwrite("./bb/" + imagePath[-9:], image)
 
 
 def bb_near(bb_1, bb_2, bb):
@@ -133,7 +126,7 @@ def prf():
         if "jpg" in imagePath:
             image = cv2.imread(imagePath)
             mask, stats = RemoveBackground.compute_removal_2(image)
-            
+
             # Save the path to the mask and get directions to original mask
             ogMask = cv2.imread(imagePath[:-3] + "png")
             print(imagePath[:-3] + "png")
@@ -177,19 +170,19 @@ def prf():
 
 
 def main():
- 
-    with open('../dataset/qsd1_w3/text_boxes.pkl', 'rb') as f:
+    with open('../dataset/qsd1_w4/text_boxes.pkl', 'rb') as f:
         data = pickle.load(f)
 
     IOU = []
-    oneImagePaintingW3(data, IOU)
-    #twoImagePaintingW2()
+    # oneImagePaintingW2(data, IOU)
+    twoImagePaintingW2(data, IOU)
 
     IOU = np.array(IOU)
     print("Mean IOU", IOU.mean())
     """
     prf()
     """
+
 
 if __name__ == "__main__":
     main()
