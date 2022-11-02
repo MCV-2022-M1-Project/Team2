@@ -7,7 +7,7 @@ import pickle
 import math
 import os
 from skimage.restoration import (denoise_wavelet, estimate_sigma)
-
+import time
 
 def oneImagePaintingW2(data, IOU):
     i = 0
@@ -114,6 +114,7 @@ def bb_near(bb_1, bb_2, bb):
         return bb_2
 
 
+
 def prf():
     # Initialize the parameters and counters
     sumPrecision1 = 0
@@ -121,12 +122,12 @@ def prf():
     sumF11 = 0
     counter1 = 0
 
-    for imagePath in (sorted(list_images("../dataset/qst2_w2"))):
+    for imagePath in (sorted(list_images("../dataset/qsd1_w4"))):
 
         if "jpg" in imagePath:
             image = cv2.imread(imagePath)
             mask, stats = RemoveBackground.compute_removal_2(image)
-
+            
             # Save the path to the mask and get directions to original mask
             ogMask = cv2.imread(imagePath[:-3] + "png")
             print(imagePath[:-3] + "png")
@@ -159,30 +160,33 @@ def prf():
             counter1 += 1
 
             # Take the average
-            avgPrecision1 = sumPrecision1 / counter1
-            avgRecall1 = sumRecall1 / counter1
-            avgF11 = sumF11 / counter1
+            avgPrecision1 = sumPrecision1 / (counter1)
+            avgRecall1 = sumRecall1 / (counter1)
+            avgF11 = sumF11 / (counter1)
 
             # Print the values
-            print("Method 1 Precision: ", avgPrecision1 * 100, "%")
-            print("Method 1 Recall: ", avgRecall1 * 100, "%")
-            print("Method 1 F1: ", avgF11 * 100, "%")
-
+            print("Method 1 Precision: ", precision1 * 100, "%")
+            print("Method 1 Recall: ", recall1 * 100, "%")
+            print("Method 1 F1: ", f11 * 100, "%")
+            print("Method 1 avg Precision: ", avgPrecision1 * 100, "%")
+            print("Method 1 avg Recall: ", avgRecall1 * 100, "%")
+            print("Method 1 avg F1: ", avgF11 * 100, "%")
+            print()
 
 def main():
-    with open('../dataset/qsd1_w4/text_boxes.pkl', 'rb') as f:
+    start_time = time.time()
+    with open('../dataset/qsd2_w2/text_boxes.pkl', 'rb') as f:
         data = pickle.load(f)
-
+    """
     IOU = []
-    # oneImagePaintingW2(data, IOU)
-    twoImagePaintingW2(data, IOU)
+    oneImagePaintingW3(data, IOU)
+    #twoImagePaintingW2()
 
     IOU = np.array(IOU)
     print("Mean IOU", IOU.mean())
     """
     prf()
-    """
-
+    print("--- %s seconds ---" % (time.time() - start_time))
 
 if __name__ == "__main__":
     main()
