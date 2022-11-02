@@ -2,6 +2,8 @@ import numpy as np
 from PIL import Image
 import cv2
 from skimage.filters import threshold_local
+from collections import deque
+import imutils
 
 class RemoveBackground:
     @staticmethod
@@ -134,35 +136,36 @@ class RemoveBackground:
         image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         # Blur the image
-        kernel = np.ones((5,5),np.float32)/(5*5)
-        blurred = cv2.filter2D(image_gray,-1,kernel)
+        #kernel = np.ones((5,5),np.float32)/(5*5)
+        blurred = cv2.medianBlur(image_gray, 7)
 
         # Use dynamic thresholding
-        T = threshold_local(blurred, 29, offset=5, method="gaussian")
-        thresh = (blurred < T).astype("uint8") * 255
+        #T = threshold_local(blurred, 29, offset=5, method="gaussian")
+        #thresh = (blurred < T).astype("uint8") * 255
+
+        thresh = cv2.Canny(blurred, 10, 100)
+        #thresh = imutils.auto_canny(blurred, 0.3)
+        #cv2.imwrite("aaaa.png", thresh)
+        r,c = image_gray.shape
 
         # Dilate the borders
-        kernel = np.ones((5, 5), np.uint8)
-        thresh_dilated = cv2.dilate(thresh, kernel, iterations=1)
-
+        #kernel = np.ones((5, 5), np.uint8)
+        #thresh_dilated = cv2.dilate(thresh, kernel, iterations=1)
+        #kernel_1 = np.ones((int(r/5), int(8)), np.uint8)
+        #kernel_2 = np.ones((int(8), int(c/5)), np.uint8)
+        kernel = np.ones((int(r/50), int(c/50)), np.uint8)
+        th_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        #th_closed = cv2.morphologyEx(th_closed, cv2.MORPH_CLOSE, kernel)
+        #cv2.imwrite("aaaaclosed.png", th_closed)
         # Get all the background component
-        bfs_threh = RemoveBackground.BFS(thresh_dilated)
-        """
-        num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStatsWithAlgorithm(thresh_dilated+1, connectivity = 8, ltype = cv2.CV_32S, ccltype = cv2.CCL_GRANA)
-
-        # Search the background label
-        label = 0
-        while stats[label][0] != 0 and stats[label][1] != 0: label += 1
-
-        # Erase the background
-        bfs_threh = (np.logical_not(labels == label)*255).astype("uint8")
-        """
-        
+        bfs_threh = RemoveBackground.BFS(th_closed)
+        #cv2.imwrite("aaaabfs.png", bfs_threh)
+ 
         # Clean the mask
-        kernel = np.ones((40, 40), np.uint8)
+        kernel = np.ones((int(r/40), int(c/40)), np.uint8)
         th_open = cv2.morphologyEx(bfs_threh, cv2.MORPH_OPEN, kernel)
         th_open = cv2.morphologyEx(th_open, cv2.MORPH_CLOSE, kernel)
-
+        #cv2.imwrite("aaaalast.png", th_open)
         # Get 2 biggest bb
         num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(th_open)
         stats = sorted(stats[1:], key = lambda t: t[4], reverse=True)
@@ -180,11 +183,11 @@ class RemoveBackground:
         row, col = thresh.shape
         mask = np.ones((row,col)).astype("uint8")*255
         mask[0,0] = 0
-        queue = [(0,0)]
+        queue = deque([(0,0)])
 
         while len(queue) > 0:
             i,j = queue[0]
-            queue.pop(0)
+            queue.popleft()
 
 
             if i-1 >= 0 and thresh[i-1, j] <= 0:
