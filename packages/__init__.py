@@ -1,6 +1,6 @@
 # Import packages
 from .histogram import RGBHistogram
-from .searcher import Searcher
+from .searcher import Searcher, SearchFeatures
 from .remove_background import RemoveBackground
 from .histogram import HistogramDescriptor
 from .remove_text import RemoveText
