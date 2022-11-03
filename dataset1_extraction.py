@@ -4,8 +4,9 @@ import collections
 import pickle
 import cv2
 from imutils.paths import list_images
-from imutils.feature import FeatureDetector_create, DescriptorExtractor_create
-from packages import HistogramDescriptor, RemoveText, Searcher, RGBHistogram, RemoveBackground, DetectAndDescribe
+from imutils.feature.factories import FeatureDetector_create, DescriptorExtractor_create, DescriptorMatcher_create
+from packages import HistogramDescriptor, RemoveText, Searcher, RGBHistogram, RemoveBackground, DetectAndDescribe, \
+    SearchFeatures
 from packages.average_precicion import mapk
 
 
@@ -19,55 +20,97 @@ def evaluate(predicted, ground_truth, k):
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
-ap.add_argument("-q1", "--query1", default="../dataset/qsd2_w1", help="Path to the query image")
+ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w2", help="Path to the query image")
 ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
+ap.add_argument("-d", "--detector", type=str, default="SURF",
+                help="Kepyoint detector to use. "
+                     "Options ['BRISK', 'DENSE', 'DOG', 'SIFT', 'FAST', 'FASTHESSIAN', 'SURF', 'GFTT', 'HARRIS', "
+                     "'MSER', 'ORB', 'STAR']")
+ap.add_argument("-e", "--extractor", type=str, default="SIFT",
+                help="Feature extractor to use. Options ['RootSIFT', 'SIFT', 'SURF']")
+ap.add_argument("-m", "--matcher", type=str, default="BruteForce",
+                help="Feature matcher to use. Options ['BruteForce', 'BruteForce-SL2', 'BruteForce-L1', 'FlannBased']")
 
 args = vars(ap.parse_args())
 
-# Initialize a Dictionary to store our images and features
+# initialize the feature detector
+# if the user entered detector as "DOG" or "FASTHESSIAN", use the appropriate value
+if args["detector"] == "DOG":
+    detector = FeatureDetector_create("SIFT")
+elif args["detector"] == "FASTHESSIAN":
+    detector = FeatureDetector_create("SURF")
+else:
+    detector = FeatureDetector_create(args["detector"])
+
+# initialize the feature extractor
+extractor = DescriptorExtractor_create(args["extractor"])
+
+"""
 index = {}
 
-# Initialize the keypoint detector, local invariant descriptor, and the descriptor pipeline
-detector = FeatureDetector_create("SURF")
-descriptor = DescriptorExtractor_create("RootSIFT")
-detectAndDescribe = DetectAndDescribe(detector, descriptor)
-print("Indexing images")
-
-# Use list_images to grab the image paths and loop over them
-for imagePath in list_images(args["index"]):
+print("[INFO] indexing")
+for imagePath in sorted(list_images("../dataset/bbdd")):
     if "jpg" in imagePath:
         # Extract our unique image ID (i.e. the filename)
         path = imagePath[imagePath.rfind("_") + 1:]
+        print("for", path)
 
-        # Load the image, compute features and update the index
+        # Load the image, compute histogram and update the index
         image = cv2.imread(imagePath)
-        (kps, descriptors) = detectAndDescribe.describe(image)
-        index[path] = [kps, descriptors]
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        # detect keypoints in the two images
+        kps = detector.detect(image)
+        print("length kps", len(kps))
+
+        # extract features from each of the keypoint regions in the images
+        (kps, features) = extractor.compute(image, kps)
+        print("length features", len(features))
+        index[path] = features
 
 # Sort the dictionary according to the keys
 index = collections.OrderedDict(sorted(index.items()))
+
+with open("index" + ".pkl", "wb") as fp:
+    pickle.dump(index, fp)"""
+file = open("index.pkl", 'rb')
+index = pickle.load(file)
+
+# Sort the dictionary according to the keys
 predicted = []
 Results = []
 bounding_boxes = []
 
+if args["detector"] == "DOG":
+    detector = FeatureDetector_create("SIFT")
+elif args["detector"] == "FASTHESSIAN":
+    detector = FeatureDetector_create("SURF")
+else:
+    detector = FeatureDetector_create(args["detector"])
+
+# initialize the feature extractor
+extractor = DescriptorExtractor_create(args["extractor"])
+
+# initialize the keypoint matcher
+matcher = DescriptorMatcher_create(args["matcher"])
+
+results = {}
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
     if "jpg" in imagePath1:
-        queryImage = cv2.imread(imagePath1)
-        print("query: {}".format(imagePath1))
+        print(imagePath1)
+        image = cv2.imread(imagePath1)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # text_id = RemoveText(queryImage)
-        # bbox = text_id.extract_text()
-        # mean, std = cv2.meanStdDev(queryImage)
-        # mean = [int(val) for val in mean]
-        # queryImage[bbox[1]:bbox[3], bbox[0]:bbox[2]] = mean
+        # detect keypoints in the two images
+        kps = detector.detect(image)
 
-        # Describe a 3D RGB histogram with 8 bins per channel
-        queryKps, queryDescriptors = detectAndDescribe.describe(queryImage)
+        # extract features from each of the keypoint regions in the images
+        (kps, features) = extractor.compute(image, kps)
 
         # Perform the search
-        searcher = Searcher(index)
-        results = searcher.search(queryDescriptors)
+        searcher = SearchFeatures(index)
+        results = searcher.search(features)
         predicted_query = []
 
         # Loop over the top ten results
@@ -78,8 +121,8 @@ for imagePath1 in sorted(list_images(args["query1"])):
             print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
 
         # Append the final predicted list
+        print(predicted)
         predicted.append(predicted_query)
-        # bounding_boxes.append(bbox)
 
 # Evaluate the map accuracy
 print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
@@ -88,5 +131,5 @@ print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps
 # Save the results
 with open("output_2" + ".pkl", "wb") as fp:
     pickle.dump(predicted, fp)
-with open("bounding_boxes_2" + ".pkl", "wb") as fp:
-    pickle.dump(bounding_boxes, fp)
+"""with open("bounding_boxes_2" + ".pkl", "wb") as fp:
+    pickle.dump(bounding_boxes, fp)"""

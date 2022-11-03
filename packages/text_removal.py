@@ -82,28 +82,26 @@ def compute_morphology_roi(morph_image, kernel_roi, sigma=0.025):
 
 
 # Function to apply constraints on the rectangles
-def get_constrained_rectangles(img, imgshow):
+def get_constrained_rectangles(image):
     # Grab the contours
-    contours = cv2.findContours(img, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+    contours = cv2.findContours(image, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
     contours = imutils.grab_contours(contours)
 
-    # Grab the image dimensions
-    width_image = img.shape[1]
-    height_image = img.shape[0]
+    # Grab the image dimensions and initialize list of rectangles
+    (height_image, width_image) = image.shape[:2]
     rectangles = []
 
     # Loop over the contours
-    for c in contours:
+    for contour in contours:
         # Approximate to the rectangle
-        x, y, w, h = cv2.boundingRect(c)
+        x, y, w, h = cv2.boundingRect(contour)
 
         # Calculate percentage of non zero contour points
-        r = float(cv2.countNonZero(img[y:y + h, x:x + w])) / (w * h)
+        r = float(cv2.countNonZero(image[y:y + h, x:x + w])) / (w * h)
 
         # Apply constraints on the rectangles
         if (width_image / 10 < w < width_image * 0.95) and (height_image / 40 < h < height_image / 2) and (w > h * 2) \
                 and r > 0.35:
-            cv2.rectangle(imgshow, (x, y), (x + w, y + h), (0, 0, 255), 10)
             rectangles.append((x, y, w, h))
 
     # Return the rectangles
@@ -132,8 +130,8 @@ def get_best_box(image, filter1_x, filter1_y, threshold, filter2_x, filter2_y):
     blackhat = compute_morphology_roi(blackhat, kernel_roi)
 
     # Get rectangles for tophat and blackhat and add them
-    rectangles_tophat = get_constrained_rectangles(tophat, image)
-    rectangles_blackhat = get_constrained_rectangles(blackhat, image)
+    rectangles_tophat = get_constrained_rectangles(tophat)
+    rectangles_blackhat = get_constrained_rectangles(blackhat)
     rectangles = rectangles_tophat + rectangles_blackhat
 
     # If length of rectangles is 0 return none else return only the best rectangle
