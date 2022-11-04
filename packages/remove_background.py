@@ -31,7 +31,7 @@ class RemoveBackground:
         mask[-edge_r:,:] = 0
         mask[:,0:edge_c] = 0
         mask[:,-edge_c:] = 0
-        #cv2.imwrite("bbb.png",mask*255)
+
         # mask = np.logical_not((data[:,:,0] > valor[0] - threshold) & (data[:,:,0] < valor[0]  + threshold) & (data[
         # :,:,1] > valor[1]  - threshold) & (data[:,:,1] < valor[1]  + threshold) & (data[:,:,2] > valor[2]  -
         # threshold) & (data[:,:,2] < valor[2] + threshold))
@@ -52,21 +52,21 @@ class RemoveBackground:
             if found_first:
                 mask[first:final, j] = 1
         
-        #cv2.imwrite("bbb_recup.png",mask*255)
+
         bfs_threh = RemoveBackground.BFS(mask)
-        #cv2.imwrite("bbb_bfs.png", bfs_threh*255)
+
 
         kernel = np.ones((int(row/40), int(col/40)), np.uint8)
         th_open = cv2.morphologyEx(bfs_threh, cv2.MORPH_OPEN, kernel)
         th_open = cv2.morphologyEx(th_open, cv2.MORPH_CLOSE, kernel)
-        #cv2.imwrite("bbb_final.png",th_open*255)
+
         # Return the mask
         mask = mask.astype("uint8")
         num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(th_open)
         stats = sorted(stats[1:], key = lambda t: t[4], reverse=True)
 
-        if len(stats) > 1 and stats[1][4] > row*col/100:
-            if len(stats) > 2 and stats[2][4] > row*col/100:
+        if len(stats) > 1 and stats[1][4] > row*col/50:
+            if len(stats) > 2 and stats[2][4] > row*col/50:
                 stats = stats[0:3]
             else:
                 stats = stats[0:2]
@@ -89,7 +89,7 @@ class RemoveBackground:
 
         thresh = cv2.Canny(blurred, 10, 100)
         #thresh = imutils.auto_canny(blurred, 0.3)
-        cv2.imwrite("aaaa.png", thresh)
+
         r,c = image_gray.shape
 
         # Dilate the borders
@@ -100,23 +100,22 @@ class RemoveBackground:
         kernel = np.ones((int(r/20), int(c/20)), np.uint8)
         th_closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_1)
         th_closed = cv2.morphologyEx(th_closed, cv2.MORPH_CLOSE, kernel_2)
-        cv2.imwrite("aaaaclosed.png", th_closed)
+
         # Get all the background component
         bfs_threh = RemoveBackground.BFS(th_closed)
-        #cv2.imwrite("aaaabfs.png", bfs_threh)
  
         # Clean the mask
         kernel = np.ones((int(r/40), int(c/40)), np.uint8)
         th_open = cv2.morphologyEx(bfs_threh, cv2.MORPH_OPEN, kernel)
         th_open = cv2.morphologyEx(th_open, cv2.MORPH_CLOSE, kernel)
-        #cv2.imwrite("aaaalast.png", th_open)
+ 
         # Get 2 biggest bb
         num_labels, labels, stats, centroids =  cv2.connectedComponentsWithStats(th_open)
         stats = sorted(stats[1:], key = lambda t: t[4], reverse=True)
         r,c = image_gray.shape
 
-        if len(stats) > 1 and stats[1][4] > r*c/100:
-            if len(stats) > 2 and stats[2][4] > r*c/100:
+        if len(stats) > 1 and stats[1][4] > r*c/50:
+            if len(stats) > 2 and stats[2][4] > r*c/50:
                 stats = stats[0:3]
             else:
                 stats = stats[0:2]
