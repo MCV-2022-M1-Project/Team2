@@ -20,7 +20,7 @@ def evaluate(predicted, ground_truth, k):
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
-ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w2", help="Path to the query image")
+ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w4", help="Path to the query image")
 ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
 ap.add_argument("-d", "--detector", type=str, default="SURF",
                 help="Kepyoint detector to use. "
@@ -100,36 +100,46 @@ for imagePath1 in sorted(list_images(args["query1"])):
     if "jpg" in imagePath1:
         print(imagePath1)
         image = cv2.imread(imagePath1)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # detect keypoints in the two images
-        kps = detector.detect(image)
+        th_open, stats = RemoveBackground.compute_removal_2(image)
+        pq = []
 
-        # extract features from each of the keypoint regions in the images
-        (kps, features) = extractor.compute(image, kps)
+        for i in range(0, len(stats)):
+            bb = stats[i]
+            img_bb = image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2], :]
+            img_bb = cv2.cvtColor(img_bb, cv2.COLOR_BGR2GRAY)
 
-        # Perform the search
-        searcher = SearchFeatures(index)
-        results = searcher.search(features)
-        predicted_query = []
+            # detect keypoints in the two images
+            kps = detector.detect(img_bb)
 
-        # Loop over the top ten results
-        for j in range(0, 10):
-            # Grab the result
-            (score, imageName) = results[j]
-            predicted_query.append(int(imageName.replace(".jpg", "")))
-            print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
+            # extract features from each of the keypoint regions in the images
+            (kps, features) = extractor.compute(img_bb, kps)
+
+            # Perform the search
+            searcher = SearchFeatures(index)
+            results = searcher.search(features)
+            predicted_query = []
+
+            # Loop over the top ten results
+            for j in range(0, 5):
+                # Grab the result
+                (score, imageName) = results[j]
+                predicted_query.append(int(imageName.replace(".jpg", "")))
+                print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
+
+            pq.append(predicted_query)
 
         # Append the final predicted list
+        predicted.append(pq)
         print(predicted)
-        predicted.append(predicted_query)
 
 # Evaluate the map accuracy
 print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
 print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
 
-# Save the results
+"""# Save the results
 with open("output_2" + ".pkl", "wb") as fp:
-    pickle.dump(predicted, fp)
+    pickle.dump(predicted, fp)"""
 """with open("bounding_boxes_2" + ".pkl", "wb") as fp:
     pickle.dump(bounding_boxes, fp)"""

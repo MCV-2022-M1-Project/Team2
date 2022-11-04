@@ -6,40 +6,33 @@ from skimage.filters import threshold_local
 
 
 # Define function to determine the best rectangle
-def compute_score(rect, image):
+def compute_score(bouding_box, image):
     # Grab dimensions of the image
     image_height = image.shape[0]
     image_width = image.shape[1]
-    image_height_center = image_height / 2.0
     image_width_center = image_width / 2.0
     aspect_ratio = 4.0
 
     # Grab the coordinates of the bounding box
-    x = rect[0]
-    y = rect[1]
-    w = rect[2]
-    h = rect[3]
+    x = bouding_box[0]
+    y = bouding_box[1]
+    w = bouding_box[2]
+    h = bouding_box[3]
     cX = x + w / 2.0
-    cY = y + h / 2.0
     rect_ratio = float(w) / h
 
     # Calculate x and y center score depending on their value relative to image
     x_center_score = abs(cX - image_width_center)
-    if cY <= image_height_center:
-        y_center_score = abs(cY - image_height / 6.0)
-    else:
-        y_center_score = abs(cY - image_height * 5.0 / 6.0)
 
     # Calculate ratio score
     ratio_score = abs(rect_ratio - aspect_ratio)
 
     # Give weights to all scores
     x_weight = 0.5
-    y_weight = 0.2
     ratio_weight = 0.5
 
     # Calculate the final score
-    final_Score = x_center_score * x_weight + y_center_score * y_weight + ratio_score * ratio_weight
+    final_Score = x_center_score * x_weight + ratio_score * ratio_weight
 
     # Return the final score
     return final_Score
@@ -55,7 +48,7 @@ def get_best_rectangle(rectangles, image):
         if rectangle is not None:
             distances.append(compute_score(rectangle, image))
         else:
-            distances.append(100000000)
+            distances.append(100000)
 
     # Sort the distances
     idx_best_rectangle = np.argsort(distances)[0]
