@@ -8,14 +8,12 @@ from skimage.filters import threshold_local
 # Define function to determine the best rectangle
 def compute_score(bouding_box, image):
     # Grab dimensions of the image
-    image_height = image.shape[0]
     image_width = image.shape[1]
     image_width_center = image_width / 2.0
-    aspect_ratio = 4.0
+    aspect_ratio = 3.5
 
     # Grab the coordinates of the bounding box
     x = bouding_box[0]
-    y = bouding_box[1]
     w = bouding_box[2]
     h = bouding_box[3]
     cX = x + w / 2.0
