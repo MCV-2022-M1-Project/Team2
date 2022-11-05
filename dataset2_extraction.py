@@ -2,6 +2,8 @@
 import argparse
 import collections
 import pickle
+import time
+
 import cv2
 from imutils.paths import list_images
 from imutils.feature.factories import FeatureDetector_create, DescriptorExtractor_create, DescriptorMatcher_create
@@ -88,9 +90,10 @@ for imagePath in sorted(list_images("../dataset/bbdd")):
         print("length kps", len(kps))
 
         # extract features from each of the keypoint regions in the images
-        (kps, features) = orb.compute(image, kps)
-        print("length features", len(features))
-        index[path] = features
+        if len(kps) != 0:
+            (kps, features) = orb.compute(image, kps)
+            print("length features", len(features))
+            index[path] = features
 
 # Sort the dictionary according to the keys
 index = collections.OrderedDict(sorted(index.items()))
@@ -106,6 +109,7 @@ predicted = []
 Results = []
 bounding_boxes = []
 
+start_time = time.time()
 # initialize the feature detector
 orb = cv2.ORB_create(10000)
 
@@ -164,7 +168,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
 # Evaluate the map accuracy
 print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
 print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
-
+print("--- %s seconds ---" % (time.time() - start_time))
 """# Save the results
 with open("output_2" + ".pkl", "wb") as fp:
     pickle.dump(predicted, fp)"""
