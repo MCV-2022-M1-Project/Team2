@@ -5,10 +5,11 @@ import operator
 import os
 import textdistance
 from packages import RemoveText
+import re
 
 class TextDescriptors:
     # Define function to ocr text
-    def read_text(self, queryImage, bbox):
+    def read_text(self, queryImage, bbox, useBB):
         if os.name == "nt": # only run it in windows
             pytesseract.pytesseract.tesseract_cmd = "tesseract.exe"
         # Extract the coordinates
@@ -18,7 +19,10 @@ class TextDescriptors:
         h = bbox[3]
 
         if bbox != [0, 0, 0, 0]:
-            roi = queryImage[y:h, x:w]
+            if useBB:
+                roi = queryImage[y:h, x:w]
+            else:
+                roi = queryImage
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
             _, gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             text = pytesseract.image_to_string(gray, config='--psm 6')
@@ -71,7 +75,28 @@ class TextDescriptors:
 
         # Return the distance
         return distance
+    
+    def cleanstr(self, st):
+        st = st.lower() + " "
+        #st = re.sub(r'\b\w{1,4}\b.' , ' ', st)
+        st = re.sub(r'[0-9]+' , ' ', st)
+        st = re.sub(r'\b[aeiou][aeiou]*\b' , ' ', st) # palabras de vocales juntas
+        st = re.sub(r'\b[a-z]*(aa|ee|ii|oo|uu)+[a-z]*\b' , ' ', st) # 
+        st = re.sub(r'\b[bcdfghjklmnpqrstvwxz][bcdfghjklmnpqrstvwxz]*\b' , ' ', st)
+        st = re.sub(r'\b(bcdfghjklmnpqrstvwxz)\b' , ' ', st)
+        st = re.sub(r'[ ]+' , ' ', st)
+        return st
 
+    def cleanstrstrong(self, st):
+        st = st.lower() + " "
+        st = re.sub(r'\b\w{1,4}\b.' , ' ', st)
+        st = re.sub(r'[0-9]+' , ' ', st)
+        st = re.sub(r'\b[aeiou][aeiou]*\b' , ' ', st) # palabras de vocales juntas
+        st = re.sub(r'\b[a-z]*(aa|ee|ii|oo|uu)+[a-z]*\b' , ' ', st) # 
+        st = re.sub(r'\b[bcdfghjklmnpqrstvwxz][bcdfghjklmnpqrstvwxz]*\b' , ' ', st)
+        st = re.sub(r'\b(bcdfghjklmnpqrstvwxz)\b' , ' ', st)
+        st = re.sub(r'[ ]+' , ' ', st)
+        return st
 
     def get_k_images(self, image, index, k=10, distance_metric="Levensthein"):
         # Get Bounding box of the image
@@ -80,7 +105,9 @@ class TextDescriptors:
 
         # Initialize distance
         distances = {}
-        text = self.read_text(image, bb)
+        text = self.read_text(image, bb, True)
+        text = self.cleanstr(text)
+        print("Cleaned:", text)
         # Loop over the dataset texts
         for id, dataset_text in index.items():
 
@@ -96,6 +123,29 @@ class TextDescriptors:
         min_distance = min(distances.values())
         author_images = [key for key in distances if distances[key] == min_distance]
         k_predicted_images = (sorted(distances.items(), key=operator.itemgetter(1), reverse=False))[:k]
+
+        if min_distance >= len(text.replace(" ","")):
+            print("Recomputing text without BB")
+            distances = {}
+            text = self.read_text(image, bb, False)
+            text = self.cleanstrstrong(text)
+            print("Cleaned:", text)
+            # Loop over the dataset texts
+            for id, dataset_text in index.items():
+
+                # Calculate similarity between the current text and dataset texts
+                if dataset_text != 'empty':
+                    dataset_text = dataset_text.replace("(", "").replace("'", " ").replace(")", "")
+                    distances[id] = self.get_text_distance(text.lower(), dataset_text.split(",", 1)[0].strip(), distance_metric)
+
+                else:
+                    distances[id] = 100
+
+            # Calculate the minimum distance and get the top k images
+            min_distance = min(distances.values())
+            author_images = [key for key in distances if distances[key] == min_distance]
+            k_predicted_images = (sorted(distances.items(), key=operator.itemgetter(1), reverse=False))[:k]
+
 
         # Return the predictions
         return [int(predicted_image[0][:-4]) for predicted_image in k_predicted_images], author_images, distances, text
