@@ -52,7 +52,7 @@ def evaluate(predicted, ground_truth, k):
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
-ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w4", help="Path to the query image")
+ap.add_argument("-q1", "--query1", default="../dataset/qst1_w4", help="Path to the query image")
 ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
 ap.add_argument("-d", "--detector", type=str, default="SURF",
                 help="Kepyoint detector to use. "
@@ -147,7 +147,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
             Score = []
 
             # Loop over the top ten results
-            for j in range(0, 5):
+            for j in range(0, 10):
                 # Grab the result
                 (score, imageName) = results[j]
                 Score.append(score)
@@ -155,7 +155,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
                 print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
 
             Score = sorted(Score, reverse=True)
-            if Score[0] < 300:
+            if Score[0] < 3*len(kps)/100:
                 predicted_query = [-1]
 
             pq.append(predicted_query)
@@ -166,11 +166,11 @@ for imagePath1 in sorted(list_images(args["query1"])):
         print(predicted)
 
 # Evaluate the map accuracy
-print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
-print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
+"""print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
+print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))"""
 print("--- %s seconds ---" % (time.time() - start_time))
-"""# Save the results
-with open("output_2" + ".pkl", "wb") as fp:
-    pickle.dump(predicted, fp)"""
+# Save the results
+with open("result" + ".pkl", "wb") as fp:
+    pickle.dump(predicted, fp)
 """with open("bounding_boxes_2" + ".pkl", "wb") as fp:
     pickle.dump(bounding_boxes, fp)"""

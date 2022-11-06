@@ -71,8 +71,7 @@ sift = cv2.SIFT_create(10000)
 # initialize the feature extractor
 extractor = DescriptorExtractor_create(args["extractor"])
 
-
-"""index = {}
+index = {}
 
 print("[INFO] indexing")
 for imagePath in sorted(list_images("../dataset/bbdd")):
@@ -87,22 +86,24 @@ for imagePath in sorted(list_images("../dataset/bbdd")):
 
         # detect keypoints in the two images
         kps, features = sift.detectAndCompute(image, None)
-        print("length kps", len(kps))
+        if len(kps) != 0:
+            print("length kps", len(kps))
 
-        # extract features from each of the keypoint regions in the images
-        # (kps, features) = extractor.compute(image, kps)
-        print("length features", len(features))
-        index[path] = features
+            # extract features from each of the keypoint regions in the images
+            # (kps, features) = extractor.compute(image, kps)
+            print("length features", len(features))
+            index[path] = features
 
 # Sort the dictionary according to the keys
 index = collections.OrderedDict(sorted(index.items()))
 
-with open("index" + ".pkl", "wb") as fp:
-    pickle.dump(index, fp)"""
-start_time = time.time()
-file = open("index.pkl", 'rb')
-index = pickle.load(file)
+"""with open("index" + ".pkl", "wb") as fp:
+    pickle.dump(index, fp)
 
+file = open("index.pkl", 'rb')
+index = pickle.load(file)"""
+
+start_time = time.time()
 # Sort the dictionary according to the keys
 predicted = []
 Results = []
@@ -145,7 +146,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
             Score = []
 
             # Loop over the top ten results
-            for j in range(0, 5):
+            for j in range(0, 10):
                 # Grab the result
                 (score, imageName) = results[j]
                 Score.append(score)
@@ -153,7 +154,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
                 print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
 
             Score = sorted(Score, reverse=True)
-            if Score[0] < 500:
+            if Score[0] < len(kps)/20:
                 predicted_query = [-1]
 
             pq.append(predicted_query)
