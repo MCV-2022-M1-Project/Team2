@@ -2,6 +2,8 @@
 import argparse
 import collections
 import pickle
+import time
+
 import cv2
 from imutils.paths import list_images
 from imutils.feature.factories import FeatureDetector_create, DescriptorExtractor_create, DescriptorMatcher_create
@@ -10,9 +12,39 @@ from packages import HistogramDescriptor, RemoveText, Searcher, RGBHistogram, Re
 from packages.average_precicion import mapk
 
 
+def flatten(l):
+    return [[item] for sublist in l for item in sublist]
+
+
+def balance_lists(gt, pred):
+    """
+    Only works for a difference of 1 in each iteration
+    """
+    gt_res = []
+    pred_res = []
+
+    for g, p in zip(gt, pred):
+        add_g = g
+        add_p = p
+        if len(g) > len(p):
+            aux = 10 * [-1]
+            add_p.append(aux)
+        elif len(p) > len(g):
+            aux = [-1]
+            add_g += aux
+        pred_res += add_p
+        gt_res.append(add_g)
+
+    gt_res = flatten(gt_res)
+    return gt_res, pred_res
+
+
 def evaluate(predicted, ground_truth, k):
     file = open(ground_truth, 'rb')
     actual = pickle.load(file)
+
+    actual, predicted = balance_lists(actual, predicted)
+
     result = mapk(actual=actual, predicted=predicted, k=k)
     return result
 
@@ -34,19 +66,13 @@ ap.add_argument("-m", "--matcher", type=str, default="BruteForce",
 args = vars(ap.parse_args())
 
 # initialize the feature detector
-# if the user entered detector as "DOG" or "FASTHESSIAN", use the appropriate value
-if args["detector"] == "DOG":
-    detector = FeatureDetector_create("SIFT")
-elif args["detector"] == "FASTHESSIAN":
-    detector = FeatureDetector_create("SURF")
-else:
-    detector = FeatureDetector_create(args["detector"])
+sift = cv2.SIFT_create(10000)
 
 # initialize the feature extractor
 extractor = DescriptorExtractor_create(args["extractor"])
 
-"""
-index = {}
+
+"""index = {}
 
 print("[INFO] indexing")
 for imagePath in sorted(list_images("../dataset/bbdd")):
@@ -60,11 +86,11 @@ for imagePath in sorted(list_images("../dataset/bbdd")):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         # detect keypoints in the two images
-        kps = detector.detect(image)
+        kps, features = sift.detectAndCompute(image, None)
         print("length kps", len(kps))
 
         # extract features from each of the keypoint regions in the images
-        (kps, features) = extractor.compute(image, kps)
+        # (kps, features) = extractor.compute(image, kps)
         print("length features", len(features))
         index[path] = features
 
@@ -73,6 +99,7 @@ index = collections.OrderedDict(sorted(index.items()))
 
 with open("index" + ".pkl", "wb") as fp:
     pickle.dump(index, fp)"""
+start_time = time.time()
 file = open("index.pkl", 'rb')
 index = pickle.load(file)
 
@@ -81,20 +108,14 @@ predicted = []
 Results = []
 bounding_boxes = []
 
-if args["detector"] == "DOG":
-    detector = FeatureDetector_create("SIFT")
-elif args["detector"] == "FASTHESSIAN":
-    detector = FeatureDetector_create("SURF")
-else:
-    detector = FeatureDetector_create(args["detector"])
-
-# initialize the feature extractor
-extractor = DescriptorExtractor_create(args["extractor"])
+# initialize the feature detector
+sift = cv2.SIFT_create(10000)
 
 # initialize the keypoint matcher
 matcher = DescriptorMatcher_create(args["matcher"])
 
 results = {}
+index_results = {}
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
     if "jpg" in imagePath1:
@@ -102,7 +123,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
         image = cv2.imread(imagePath1)
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        th_open, stats = RemoveBackground.compute_removal_2(image)
+        th_open, stats = RemoveBackground.compute_removal(image)
         pq = []
 
         for i in range(0, len(stats)):
@@ -110,25 +131,33 @@ for imagePath1 in sorted(list_images(args["query1"])):
             img_bb = image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2], :]
             img_bb = cv2.cvtColor(img_bb, cv2.COLOR_BGR2GRAY)
 
-            # detect keypoints in the two images
-            kps = detector.detect(img_bb)
+            # detect keyPoints in the two images
+            kps, features = sift.detectAndCompute(img_bb, None)
+            print(len(kps))
 
             # extract features from each of the keypoint regions in the images
-            (kps, features) = extractor.compute(img_bb, kps)
+            # (kps, features) = extractor.compute(img_bb, kps)
 
             # Perform the search
             searcher = SearchFeatures(index)
             results = searcher.search(features)
             predicted_query = []
+            Score = []
 
             # Loop over the top ten results
             for j in range(0, 5):
                 # Grab the result
                 (score, imageName) = results[j]
+                Score.append(score)
                 predicted_query.append(int(imageName.replace(".jpg", "")))
                 print("\t{}. {} : {:.3f}".format(j + 1, imageName, score))
 
+            Score = sorted(Score, reverse=True)
+            if Score[0] < 500:
+                predicted_query = [-1]
+
             pq.append(predicted_query)
+            print(pq)
 
         # Append the final predicted list
         predicted.append(pq)
@@ -137,7 +166,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
 # Evaluate the map accuracy
 print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
 print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
-
+print("--- %s seconds ---" % (time.time() - start_time))
 """# Save the results
 with open("output_2" + ".pkl", "wb") as fp:
     pickle.dump(predicted, fp)"""
