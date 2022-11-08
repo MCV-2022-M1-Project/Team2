@@ -11,3 +11,4 @@ from .noise_red import RemoveNoise
 from .text_descriptors import TextDescriptors
 from .text_removal import detect_text_box, extract_text
 from .feature_descriptor import DetectAndDescribe
+from .extract_angles import extract_angle
