@@ -8,7 +8,7 @@ import cv2
 from imutils.paths import list_images
 from imutils.feature.factories import FeatureDetector_create, DescriptorExtractor_create, DescriptorMatcher_create
 from packages import HistogramDescriptor, RemoveText, Searcher, RGBHistogram, RemoveBackground, DetectAndDescribe, \
-    SearchFeatures
+    SearchFeatures, RemoveNoise, extract_angle
 from packages.average_precicion import mapk
 
 
@@ -52,7 +52,7 @@ def evaluate(predicted, ground_truth, k):
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--index", default="../dataset/bbdd", help="Path to the image dataset")
-ap.add_argument("-q1", "--query1", default="../dataset/qst1_w4", help="Path to the query image")
+ap.add_argument("-q1", "--query1", default="../dataset/qsd1_w5", help="Path to the query image")
 ap.add_argument("-q2", "--query2", default="../dataset/qsd2_w2", help="Path to the query image")
 ap.add_argument("-d", "--detector", type=str, default="SURF",
                 help="Kepyoint detector to use. "
@@ -72,7 +72,7 @@ orb = cv2.ORB_create(10000)
 extractor = DescriptorExtractor_create(args["extractor"])
 
 
-index = {}
+"""index = {}
 
 print("[INFO] indexing")
 for imagePath in sorted(list_images("../dataset/bbdd")):
@@ -99,7 +99,7 @@ for imagePath in sorted(list_images("../dataset/bbdd")):
 index = collections.OrderedDict(sorted(index.items()))
 
 with open("index_orb" + ".pkl", "wb") as fp:
-    pickle.dump(index, fp)
+    pickle.dump(index, fp)"""
 
 file = open("index_orb.pkl", 'rb')
 index = pickle.load(file)
@@ -120,10 +120,13 @@ results = {}
 index_results = {}
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
-    if "jpg" in imagePath1:
+    if "jpg" in imagePath1 and "non_augmented" in imagePath1:
         print(imagePath1)
         image = cv2.imread(imagePath1)
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        noise = RemoveNoise(image)
+        image = noise.denoise_image()
+        angle, image = extract_angle(image)
 
         th_open, stats = RemoveBackground.compute_removal(image)
         pq = []
@@ -166,11 +169,13 @@ for imagePath1 in sorted(list_images(args["query1"])):
         print(predicted)
 
 # Evaluate the map accuracy
-"""print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
-print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))"""
+print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
+print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
 print("--- %s seconds ---" % (time.time() - start_time))
-# Save the results
+
+"""# Save the results
 with open("result" + ".pkl", "wb") as fp:
     pickle.dump(predicted, fp)
-"""with open("bounding_boxes_2" + ".pkl", "wb") as fp:
-    pickle.dump(bounding_boxes, fp)"""
+with open("bounding_boxes_2" + ".pkl", "wb") as fp:
+    pickle.dump(bounding_boxes, fp)
+"""
