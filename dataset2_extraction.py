@@ -8,12 +8,14 @@ import cv2
 from imutils.paths import list_images
 from imutils.feature.factories import FeatureDetector_create, DescriptorExtractor_create, DescriptorMatcher_create
 from packages import HistogramDescriptor, RemoveText, Searcher, RGBHistogram, RemoveBackground, DetectAndDescribe, \
-    SearchFeatures, RemoveNoise, extract_angle
+    SearchFeatures, RemoveNoise, extract_angle, TextDescriptors
 from packages.average_precicion import mapk
-
+import os
 
 def flatten(l):
     return [[item] for sublist in l for item in sublist]
+
+
 
 
 def balance_lists(gt, pred):
@@ -48,6 +50,20 @@ def evaluate(predicted, ground_truth, k):
     result = mapk(actual=actual, predicted=predicted, k=k)
     return result
 
+def evaluate_2(predicted, ground_truth):
+    file = open(ground_truth, 'rb')
+    actual = pickle.load(file)
+
+    actual, predicted = balance_lists(actual, predicted)
+    summation = 0
+    count = 0
+    txd = TextDescriptors()
+    for i in range(len(actual)):
+        summation += txd.get_text_distance(actual[i], predicted[i], distance_metric="Levensthein")
+        count += 1
+    return summation/count
+
+
 
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -70,7 +86,7 @@ orb = cv2.ORB_create(10000)
 
 # initialize the feature extractor
 extractor = DescriptorExtractor_create(args["extractor"])
-
+index_text = {}
 
 """index = {}
 
@@ -99,15 +115,46 @@ for imagePath in sorted(list_images("../dataset/bbdd")):
 index = collections.OrderedDict(sorted(index.items()))
 
 with open("index_orb" + ".pkl", "wb") as fp:
-    pickle.dump(index, fp)"""
+    pickle.dump(index, fp)
+    
+
 
 file = open("index_orb.pkl", 'rb')
-index = pickle.load(file)
+index = pickle.load(file)  
+    
+"""
+
+
+# Initialize a Dictionary to store texts
+all_files = sorted(os.listdir("../dataset/bbdd"))
+# Use list_images to grab the image paths and loop over them
+for imagePath in all_files:
+    if "txt" in imagePath:
+        # Extract our unique image ID (i.e. the filename)
+        path = imagePath[imagePath.rfind("_") + 1:]
+
+        # Open the text file and read contents
+        file = open("../dataset/bbdd"+'/'+imagePath, "r")
+        line = file.readline()
+        if line.strip():
+            text = line.lower().replace("(", "").replace("'", " ").replace(")", "")
+        else:
+            text = 'empty'
+
+        # Add the text to list of dictionaries
+        index_text[path] = text
+
+
+
+
+
 
 # Sort the dictionary according to the keys
 predicted = []
 Results = []
 bounding_boxes = []
+predicted_text = []
+text_read = []
 
 start_time = time.time()
 # initialize the feature detector
@@ -118,6 +165,8 @@ matcher = DescriptorMatcher_create(args["matcher"])
 
 results = {}
 index_results = {}
+text_readed_path = "./text_qsd1_w5/"
+
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
     if "jpg" in imagePath1 and "non_augmented" in imagePath1:
@@ -130,10 +179,15 @@ for imagePath1 in sorted(list_images(args["query1"])):
 
         th_open, stats = RemoveBackground.compute_removal(image)
         pq = []
-
+        txtdist = []
+        pq_text = []
+        txtr = []
         for i in range(0, len(stats)):
             bb = stats[i]
             img_bb = image[bb[1]:bb[1] + bb[4], bb[0]:bb[0] + bb[2], :]
+
+
+            
             img_bb = cv2.cvtColor(img_bb, cv2.COLOR_BGR2GRAY)
 
             # detect keyPoints in the two images
@@ -163,19 +217,58 @@ for imagePath1 in sorted(list_images(args["query1"])):
 
             pq.append(predicted_query)
             print(pq)
+            
+
+            rn = RemoveNoise(img_bb)
+            queryImage_rn = rn.denoise_image()
+            td = TextDescriptors()
+            aux = td.get_k_images(queryImage_rn, index_text)
+            pq_text.append(aux[0])
+            txtr.append(aux[3]+"\n")
+
 
         # Append the final predicted list
         predicted.append(pq)
-        print(predicted)
+        predicted_text.append(pq_text)
+        text_read.append(txtr)
+
+        #with open(text_readed_path+imagePath[-9:-4]+".txt", 'w') as f:
+        #    for t in txtr:
+        #        f.write(t)
+        #print(predicted)
+
+
+# Save the results
+with open("result" + ".pkl", "wb") as fp:
+    pickle.dump(predicted, fp)
+with open("bounding_boxes_2" + ".pkl", "wb") as fp:
+    pickle.dump(bounding_boxes, fp)
+
+file = open("result.pkl", 'rb')
+predicted = pickle.load(file)
+file = open("bounding_boxes_2.pkl", 'rb')
+bounding_boxes = pickle.load(file)
+
+
+with open("predicted_text" + ".pkl", "wb") as fp:
+    pickle.dump(predicted_text, fp)
+with open("text_read" + ".pkl", "wb") as fp:
+    pickle.dump(text_read, fp)
+
+file = open("predicted_text.pkl", 'rb')
+predicted_text = pickle.load(file)
+file = open("text_read.pkl", 'rb')
+text_read = pickle.load(file)
+
 
 # Evaluate the map accuracy
 print("map@ {}: {}".format(1, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=1)))
 print("map@ {}: {}".format(5, evaluate(predicted, args["query1"] + "/gt_corresps.pkl", k=5)))
 print("--- %s seconds ---" % (time.time() - start_time))
 
-"""# Save the results
-with open("result" + ".pkl", "wb") as fp:
-    pickle.dump(predicted, fp)
-with open("bounding_boxes_2" + ".pkl", "wb") as fp:
-    pickle.dump(bounding_boxes, fp)
-"""
+
+print("Prediction of text:")
+print("map@ {}: {}".format(1, evaluate(predicted_text, args["query1"] + "/gt_corresps.pkl", k=1)))
+print("map@ {}: {}".format(5, evaluate(predicted_text, args["query1"] + "/gt_corresps.pkl", k=5)))
+print("Avg text distance:")
+print("{}".format(evaluate_2(text_read, args["query1"] + "/gt_corresps.pkl")))
