@@ -1,59 +1,63 @@
 import numpy as np
 import cv2
 from skimage.transform import probabilistic_hough_line
-
+import vg
 
 def extract_angle(image):
     # Convert image to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    #gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # Blur the image, convert to canny and apply dilation
-    gray_blur = cv2.medianBlur(gray, 5)
-    edges = cv2.Canny(gray_blur, 50, 200)
+    #gray_blur = cv2.medianBlur(gray, 5)
+    edges = cv2.Canny(image, 50, 200)
     kernel = np.ones((3, 3), np.uint8)
     dilation = cv2.dilate(edges, kernel, iterations=1)
+    row, col = dilation.shape
 
     # Detect lines using hough transform
-    lines = probabilistic_hough_line(dilation, threshold=300, line_length=int(np.floor(np.size(image, 0) / 5)), line_gap=3)
-    max = 0
-    angle = 0
-    pos = 0
-
+    lines = cv2.HoughLinesP(dilation, rho=1., theta=np.pi/180.,
+                        threshold=80, minLineLength=30, maxLineGap=10.)
+    best_line = [0,0,0,0]
+    angle_current = 0
+    count = 0
     # Loop over the lines if not none
-    if lines:
+    if len(lines) > 0:
+        best_line = lines[0]
+        
         for j in range(0, len(lines)):
-            # Grab the current line
-            line = lines[j]
-
+            line = lines[j] 
             # Correct the line
             x1, y1, x2, y2 = correctCoordinates(line)
 
-            # Calculate the max angle
-            val = x1 + y1
-            angle_current = getAngle(x1, y1, x2, y2)
-            if (val > max or max == 0) and (45 > angle_current > -45):
-                angle = angle_current
-                max = val
-                pos = j
-        # x1, y1, x2, y2 = correctCoordinates(lines[pos])
-        # cv2.line(img, (x1, y1), (x2, y2), (125), 5)
+            #image = cv2.line(image,(x1,y1),(x2,y2),(200,200,200),9)
+            if abs(y2-y1) <= abs(x2-x1):
+                #image_p = cv2.line(image,(x1,y1),(x2,y2),(200,200,200),9)
+                angle_current += angle_between([x1+5 - x1, y1 - y1, 0], [x2 - x1, y2 - y1, 0])
+                count += 1
 
-    # Correct the angles
-    if angle > 45:
-        angle = 90 - angle
-    elif angle < -45:
-        angle = angle + 90
-
+    angle = angle_current/count
+    x1, y1, x2, y2 = correctCoordinates(best_line)
+    #image_p = cv2.line(image,(x1,y1),(x2,y2),(200,200,200),9)
+    if angle < 0:
+        angle = 180 - angle 
+    #cv2.imwrite("image_p.png",image_p)
+    #cv2.imwrite("mask_line.png",image)
     image = rotate(image, angle)
 
     # Correct the angles
     if angle < 0:
-        angle = angle + 180
-    elif angle < 90:
-        angle = angle + 90
+        angle = 180 + angle
 
     return angle
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
 
+def angle_between(v1, v2):
+    v1 = np.array(v1)
+    v2 = np.array(v2)
+    angle = vg.signed_angle(v2, v1, look=vg.basis.z)
+    return angle
 
 def getAngle(x1, y1, x2, y2):
     # Vertical line
@@ -68,7 +72,7 @@ def getAngle(x1, y1, x2, y2):
         angle = np.arctan((y2 - y1) / (x2 - x1))
         # Transform to degrees
         angle = angle * 180 / np.pi
-
+        #angle = abs(angle) % 180
     # Anti-clockwise
     return -angle
 
@@ -91,8 +95,8 @@ def correctCoordinates(line):
     # Grab coordinates of the points on the line
     x2 = line[0][0]
     y2 = line[0][1]
-    x1 = line[1][0]
-    y1 = line[1][1]
+    x1 = line[0][2]
+    y1 = line[0][3]
 
     # If x1 is greater than x2 swap the coordinates
     if x1 > x2:

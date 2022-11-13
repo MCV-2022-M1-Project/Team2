@@ -43,7 +43,7 @@ def order_points_old(pts):
     # return the ordered coordinates
     return rect
 
-"""
+
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
     if "jpg" in imagePath1 and "non_augmented" not in imagePath1:
@@ -55,9 +55,12 @@ for imagePath1 in sorted(list_images(args["query1"])):
         noise = RemoveNoise(image)
 
         image = noise.denoise_image()
-        angle, _ = extract_angle(image)
 
         th_open, stats = RemoveBackground.compute_removal_2(image)
+
+        angle = extract_angle(th_open)
+
+
         cnts = cv2.findContours(th_open, cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
@@ -80,7 +83,7 @@ with open("angle_cord_list" + ".pkl", "wb") as fp:
     pickle.dump(angle_cord_list, fp)
 
 #print("angle_cord_list", angle_cord_list)
-"""
+
 file = open("angle_cord_list.pkl", 'rb')
 angle_cord_list = pickle.load(file)
 
