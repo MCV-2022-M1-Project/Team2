@@ -6,8 +6,8 @@ import imutils
 import numpy as np
 from imutils import contours, perspective
 from imutils.paths import list_images
-
 from packages import extract_angle, RemoveNoise, RemoveBackground
+import pickle
 
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -45,25 +45,23 @@ def order_points_old(pts):
 
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
-    if "jpg" in imagePath1 and "non_augmented" not in imagePath1:
+    if "jpg" in imagePath1 and "non_augmented" not in imagePath1 and "010.jpg" in imagePath1:
+
         print(imagePath1)
         image = cv2.imread(imagePath1)
-        ang = []
-        cord_list = []
+        row, col, _ = image.shape
+        
         noise = RemoveNoise(image)
 
         image = noise.denoise_image()
-        angle, image = extract_angle(image)
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        angle, image = extract_angle(image)
-        #ang.append(angle)
+        angle, image_1 = extract_angle(image)
 
-        th_open, stats = RemoveBackground.compute_removal(image)
+        th_open, stats = RemoveBackground.compute_removal_2(image)
         cnts = cv2.findContours(th_open, cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
         (cnts, _) = contours.sort_contours(cnts)
-        angle_photo = [] 
+        angle_photo = []
         for i in range(len(stats)):
             c = cnts[i]
             box = cv2.minAreaRect(c)
@@ -71,9 +69,14 @@ for imagePath1 in sorted(list_images(args["query1"])):
             box = np.array(box, dtype="int")
             rect = order_points_old(box)
             rect = perspective.order_points(box)
-            cord_list.append(rect.astype("int"))
-            cv2.drawContours(image, [box], -1, (0, 255, 0), 2)
-            angle_photo.append([angle, [cord_list]])
+            cord_list = rect.astype("int")
+            cord_list = [(cord[0],cord[1]) for cord in cord_list]
+            angle_photo.append([angle, cord_list])
         angle_cord_list.append(angle_photo)
+
+
+with open("angle_cord_list" + ".pkl", "wb") as fp:
+    pickle.dump(angle_cord_list, fp)
+    
 
 print("angle_cord_list", angle_cord_list)
