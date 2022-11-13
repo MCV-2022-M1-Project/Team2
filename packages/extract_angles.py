@@ -15,7 +15,7 @@ def extract_angle(image):
     row, col = dilation.shape
 
     # Detect lines using hough transform
-    lines = cv2.HoughLinesP(dilation, rho=1., theta=np.pi/180.,
+    lines = cv2.HoughLinesP(dilation[int(row/2):,:], rho=1., theta=np.pi/180.,
                         threshold=80, minLineLength=30, maxLineGap=10.)
     best_line = [0,0,0,0]
     angle_current = 0
@@ -43,10 +43,6 @@ def extract_angle(image):
     #cv2.imwrite("image_p.png",image_p)
     #cv2.imwrite("mask_line.png",image)
     image = rotate(image, angle)
-
-    # Correct the angles
-    if angle < 0:
-        angle = 180 + angle
 
     return angle
 def unit_vector(vector):
