@@ -17,12 +17,12 @@ def extract_angle(image):
     # Detect lines using hough transform
     lines = cv2.HoughLinesP(dilation[int(row/2):,:], rho=1., theta=np.pi/180.,
                         threshold=80, minLineLength=30, maxLineGap=10.)
-    best_line = [0,0,0,0]
+    #best_line = [0,0,0,0]
     angle_current = 0
     count = 0
     # Loop over the lines if not none
     if len(lines) > 0:
-        best_line = lines[0]
+        #best_line = lines[0]
         
         for j in range(0, len(lines)):
             line = lines[j] 
@@ -34,12 +34,15 @@ def extract_angle(image):
                 #image_p = cv2.line(image,(x1,y1),(x2,y2),(200,200,200),9)
                 angle_current += angle_between([x1+5 - x1, y1 - y1, 0], [x2 - x1, y2 - y1, 0])
                 count += 1
-
-    angle = angle_current/count
-    x1, y1, x2, y2 = correctCoordinates(best_line)
+    if count != 0:
+        angle = angle_current/count
+    else:
+        angle = 0
+    
+    #x1, y1, x2, y2 = correctCoordinates(best_line)
     #image_p = cv2.line(image,(x1,y1),(x2,y2),(200,200,200),9)
     if angle < 0:
-        angle = 180 - angle 
+        angle = 180 + angle 
     #cv2.imwrite("image_p.png",image_p)
     #cv2.imwrite("mask_line.png",image)
     image = rotate(image, angle)
