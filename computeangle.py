@@ -43,7 +43,7 @@ def order_points_old(pts):
     # return the ordered coordinates
     return rect
 
-
+"""
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
     if "jpg" in imagePath1 and "non_augmented" not in imagePath1:
@@ -80,15 +80,17 @@ with open("angle_cord_list" + ".pkl", "wb") as fp:
     pickle.dump(angle_cord_list, fp)
 
 #print("angle_cord_list", angle_cord_list)
-
+"""
 file = open("angle_cord_list.pkl", 'rb')
 angle_cord_list = pickle.load(file)
+
 
 
 def evaluate(predicted, ground_truth):
     file = open(ground_truth, 'rb')
     actual = pickle.load(file)
     IOU = []
+    Angular_error = []
     im_count = 0
     for actua_img, predic_img in zip(actual, predicted):
         print("--------")
@@ -98,18 +100,27 @@ def evaluate(predicted, ground_truth):
             if len(predic_img) > i:
                 print("picture:", i)
                 iou = bb_intersection_over_union_rotated(actua_img[i][1],predic_img[i][1])
+                ang_err = abs(actua_img[i][0] - predic_img[i][0])
                 print("iou", iou)
+                print("ang_err", ang_err)
+                print("")
                 IOU.append(iou)
+                Angular_error.append(ang_err)
         print("--------")
-    return IOU
+    return IOU, Angular_error
+
+
+
 
 
 file = open(args["query1"]+"/frames.pkl", 'rb')
 actual = pickle.load(file)
 
-IOU = evaluate(angle_cord_list, args["query1"] + "/frames.pkl")
+IOU, Angular_error = evaluate(angle_cord_list, args["query1"] + "/frames.pkl")
 IOU = np.array(IOU)
 print("Mean IOU", IOU.mean())
+Angular_error = np.array(Angular_error)
+print("Mean angular error", Angular_error.mean())
 
 
 
