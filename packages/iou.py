@@ -1,3 +1,5 @@
+from shapely.geometry import Polygon
+
 def bb_intersection_over_union(boxA, boxB):
     # Determine the (x, y)-coordinates of the intersection rectangle
     xA = max(boxA[0], boxB[0])
@@ -19,3 +21,8 @@ def bb_intersection_over_union(boxA, boxB):
 
     # Return IOU value
     return iou
+
+def bb_intersection_over_union_rotated(boxA, boxB):
+    a = Polygon(boxA)
+    b = Polygon(boxB)
+    return a.intersection(b).area / a.union(b).area

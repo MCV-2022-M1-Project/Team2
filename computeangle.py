@@ -8,6 +8,7 @@ from imutils import contours, perspective
 from imutils.paths import list_images
 from packages import extract_angle, RemoveNoise, RemoveBackground
 import pickle
+from packages import bb_intersection_over_union_rotated
 
 # Construct argument parser and parse the arguments
 ap = argparse.ArgumentParser()
@@ -45,7 +46,7 @@ def order_points_old(pts):
 
 # Load the query images
 for imagePath1 in sorted(list_images(args["query1"])):
-    if "jpg" in imagePath1 and "non_augmented" not in imagePath1 and "010.jpg" in imagePath1:
+    if "jpg" in imagePath1 and "non_augmented" not in imagePath1:
 
         print(imagePath1)
         image = cv2.imread(imagePath1)
@@ -54,7 +55,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
         noise = RemoveNoise(image)
 
         image = noise.denoise_image()
-        angle, image_1 = extract_angle(image)
+        angle, _ = extract_angle(image)
 
         th_open, stats = RemoveBackground.compute_removal_2(image)
         cnts = cv2.findContours(th_open, cv2.RETR_EXTERNAL,
@@ -77,6 +78,46 @@ for imagePath1 in sorted(list_images(args["query1"])):
 
 with open("angle_cord_list" + ".pkl", "wb") as fp:
     pickle.dump(angle_cord_list, fp)
-    
 
-print("angle_cord_list", angle_cord_list)
+#print("angle_cord_list", angle_cord_list)
+
+file = open("angle_cord_list.pkl", 'rb')
+angle_cord_list = pickle.load(file)
+
+
+def evaluate(predicted, ground_truth):
+    file = open(ground_truth, 'rb')
+    actual = pickle.load(file)
+    IOU = []
+    im_count = 0
+    for actua_img, predic_img in zip(actual, predicted):
+        print("--------")
+        print("img:", im_count)
+        im_count += 1
+        for i in range(len(actua_img)):
+            if len(predic_img) > i:
+                print("picture:", i)
+                iou = bb_intersection_over_union_rotated(actua_img[i][1],predic_img[i][1])
+                print("iou", iou)
+                IOU.append(iou)
+        print("--------")
+    return IOU
+
+
+file = open(args["query1"]+"/frames.pkl", 'rb')
+actual = pickle.load(file)
+
+IOU = evaluate(angle_cord_list, args["query1"] + "/frames.pkl")
+IOU = np.array(IOU)
+print("Mean IOU", IOU.mean())
+
+
+
+
+
+
+
+
+
+
+
