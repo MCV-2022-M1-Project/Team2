@@ -55,20 +55,17 @@ for imagePath1 in sorted(list_images(args["query1"])):
         image = noise.denoise_image()
         angle, image = extract_angle(image)
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        angle, image1 = extract_angle(image)
-        ang.append(angle)
-
-        image = cv2.imread(imagePath1)
-        noise = RemoveNoise(image)
-        image = noise.denoise_image()
         angle, image = extract_angle(image)
+        #ang.append(angle)
 
         th_open, stats = RemoveBackground.compute_removal(image)
         cnts = cv2.findContours(th_open, cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
         (cnts, _) = contours.sort_contours(cnts)
-        for (i, c) in enumerate(cnts):
+        angle_photo = [] 
+        for i in range(len(stats)):
+            c = cnts[i]
             box = cv2.minAreaRect(c)
             box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
             box = np.array(box, dtype="int")
@@ -76,8 +73,7 @@ for imagePath1 in sorted(list_images(args["query1"])):
             rect = perspective.order_points(box)
             cord_list.append(rect.astype("int"))
             cv2.drawContours(image, [box], -1, (0, 255, 0), 2)
-        angle_cord_list.append([angle, [cord_list]])
-        print(angle_cord_list)
+            angle_photo.append([angle, [cord_list]])
+        angle_cord_list.append(angle_photo)
 
-print(AnglesList)
-print(angle_cord_list)
+print("angle_cord_list", angle_cord_list)
